@@ -1,0 +1,62 @@
+plugins {
+    // Apply the java plugin to add support for Java
+    id 'java'
+
+    // Apply the application plugin to add support for building a CLI application.
+    id 'application'
+
+    id "nebula.lint" version "16.3.0"
+}
+
+gradleLint.rules = [
+    'all-dependency',
+    'duplicate-dependency-class'
+]
+
+sourceCompatibility = 1.11
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+//    implementation 'software.amazon.awssdk:protocol-core:2.10.90'
+//    implementation 'software.amazon.awssdk:dynamodb:2.10.90'
+
+    implementation 'com.amazonaws:aws-java-sdk-dynamodb:1.11.749'
+    implementation 'com.amazonaws:aws-lambda-java-core:1.2.0'
+//    implementation 'com.amazonaws:aws-lambda-java-events:1.2.0'
+    implementation 'com.amazonaws:aws-lambda-java-log4j2:1.1.0'
+    implementation 'org.apache.logging.log4j:log4j-api:2.8.2'
+    implementation 'com.google.code.findbugs:jsr305:3.0.2'
+
+    implementation 'com.fasterxml.jackson.core:jackson-core:2.6.7'
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.6.7.3'
+
+    runtimeOnly 'org.apache.logging.log4j:log4j-core:2.13.1'
+
+    implementation 'com.google.guava:guava:28.1-jre'
+
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.5.2'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.5.2'
+}
+
+application {
+    // Define the main class for the application.
+    mainClassName = 'collaborative_whiteboard.App'
+}
+
+test {
+    // Use junit platform for unit tests
+    useJUnitPlatform()
+}
+
+task buildZip(type: Zip) {
+    from compileJava
+    from processResources
+    into('lib') {
+        from configurations.runtimeClasspath
+    }
+}
+
+build.dependsOn buildZip
