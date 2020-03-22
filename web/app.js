@@ -29,7 +29,7 @@
             referrerPolicy: 'no-referrer', // no-referrer, *client
             body: JSON.stringify(data) // body data type must match "Content-Type" header
         });
-        return await response.json(); // parses JSON response into native JavaScript objects
+        return response;
     }
 
     function setContentToRemote(identifier, content, editor, isContentNewCallback) {
@@ -38,12 +38,28 @@
             "content": content
         };
         postData('/api/set', data)
-            .then((data) => {
-                console.log("set response");
-                console.log(data); // JSON data parsed by `response.json()` call
-                if (isContentNewCallback(data)) {
-                    updateLocalContent(data["content"], editor);
+            .then((response) => {
+                console.log("set response: " + response.ok);
+                editor.graph.setEnabled(true);
+                if (!response.ok) {
+                    console.log("set failed!");
+                    console.log(response);
+                    PNotify.error({
+                       text: "Failed to update whiteboard on server!"
+                    });
+                    return;
                 }
+                response.json().then(function(data) {
+                    if (data === null) {
+                        console.log("data unexpectedly null, ignoring");
+                        return;
+                    }
+                    console.log(data); // JSON data parsed by `response.json()` call
+                    if (isContentNewCallback(data)) {
+                        updateLocalContent(data["content"], editor);
+                    }
+                });
+
             });
     }
 
@@ -52,17 +68,35 @@
             "identifier": identifier,
         };
         postData('/api/get', data)
-            .then((data) => {
-                console.log("get response");
-                console.log(data); // JSON data parsed by `response.json()` call
-                if (isContentNewCallback(data)) {
-                    updateLocalContent(data["content"], editor);
+            .then((response) => {
+                console.log("get response: " + response.ok);
+                PNotify.closeAll();
+                editor.graph.setEnabled(true);
+                if (!response.ok) {
+                    console.log("get failed!");
+                    console.log(response);
+                    PNotify.error({
+                        text: "Failed to get whiteboard from server!"
+                    });
+                    return;
                 }
+
+                response.json().then(function(data) {
+                    if (data === null) {
+                        console.log("data unexpectedly null, ignoring");
+                        return;
+                    }
+                    console.log(data); // JSON data parsed by `response.json()` call
+                    editor.graph.setEnabled(true);
+                    if (isContentNewCallback(data)) {
+                        updateLocalContent(data["content"], editor);
+                    }
+                });
             });
     }
 
     function updateLocalContent(content, editor) {
-        if (content === "") {
+        if (content === "" || content === null) {
             console.log("content is empty, not setting it");
             return;
         }
@@ -94,6 +128,10 @@
     var identifier = window.location.href.split("/").pop();
     var lastGetVersion = -1;
     var lastGetContent = "";
+    var suppressNextChangeEvent = false;
+    var focused = true;
+    var refreshContentTimerId = -1;
+    var refreshInterval = 1000;
 
     // Fixes possible asynchronous requests
     mxUtils.getAll([bundle, STYLE_PATH + '/default.xml'], function (xhr) {
@@ -109,6 +147,7 @@
         // Chromeless true is good for printing out or exporting.
         var chromeless = false;
         var editor = new Editor(chromeless, themes);
+        editor.graph.setEnabled(false);
         new EditorUi(editor);
 
         // ------------------------------------------------------------
@@ -118,7 +157,14 @@
         // ------------------------------------------------------------
         // editor.graph.model.addListener(mxEvent.CHANGE, mxUtils.bind(this, function (sender, event) {
         editor.graph.model.addListener(mxEvent.CHANGE, mxUtils.bind(this, function () {
+            if (suppressNextChangeEvent) {
+                console.log('change, but suppressed');
+                suppressNextChangeEvent = false;
+                return;
+            }
             console.log('change');
+            editor.graph.setEnabled(false);
+
             var enc = new mxCodec();
             var node = enc.encode(editor.graph.getModel());
             var xml = mxUtils.getPrettyXml(node);
@@ -127,6 +173,7 @@
                 if (remoteData["content"] !== lastGetContent) {
                     lastGetVersion = remoteData["version"];
                     lastGetContent = remoteData["content"];
+                    suppressNextChangeEvent = true;
                     return true;
                 }
                 return false;
@@ -138,14 +185,42 @@
         }));
         // ------------------------------------------------------------
 
-        getContentFromRemote(identifier, editor, function(remoteData) {
-            if (remoteData["content"] !== lastGetContent) {
-                lastGetVersion = remoteData["version"];
-                lastGetContent = remoteData["content"];
-                return true;
+        function refreshContent() {
+            if (!focused) {
+                return;
             }
-            return false;
+            getContentFromRemote(identifier, editor, function(remoteData) {
+                if (refreshContentTimerId === -1) {
+                    refreshContentTimerId = setTimeout(refreshContent, refreshInterval);
+                }
+                if (remoteData["content"] !== lastGetContent) {
+                    lastGetVersion = remoteData["version"];
+                    lastGetContent = remoteData["content"];
+                    return true;
+                }
+                return false;
+            });
+        }
+
+        PNotify.info({
+            text: "First-time loading whiteboard content from server..."
         });
+        refreshContent();
+
+        window.onfocus = function() {
+            focused = true;
+            if (refreshContentTimerId === -1) {
+                refreshContentTimerId = setTimeout(refreshContent, refreshInterval);
+            }
+        };
+
+        window.onblur = function() {
+            focused = false;
+            if (refreshContentTimerId > 0) {
+                clearTimeout(refreshContentTimerId);
+                refreshContentTimerId = -1;
+            }
+        }
 
     }, function () {
         document.body.innerHTML = '<center style="margin-top:10%;">Error loading resource files. Please check browser console.</center>';

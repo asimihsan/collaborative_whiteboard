@@ -34,7 +34,7 @@ public class CdkApp {
         // --------------------------------------------------------------------
         //  Lambda@Edge functions must be in us-east-1, so make pre-prod / prod ones here.
         // --------------------------------------------------------------------
-        final String rewriteLambdaStackName = "preprod-WhiteboardIhanIoRewriteLambdaCdkStack";
+        final String rewriteLambdaStackName = "preprod-WhiteboardIhsanIoRewriteLambdaCdkStack";
         final String rewriteLambdaOutputName = "RewriteLambdaName";
         final String rewriteLambdaCode = Resources.toString(
                 Resources.getResource("cfn_stack_lookup.js"), Charsets.UTF_8);

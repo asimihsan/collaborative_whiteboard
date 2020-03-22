@@ -54,7 +54,7 @@ public class RewriteLambdaEdgeStack extends Stack {
                         .build()
                 )
                 .build();
-        final IVersion rewriteLambdaVersion = Version.Builder.create(this, "RewriteLambdaEdgeVersion_000006_")
+        final IVersion rewriteLambdaVersion = Version.Builder.create(this, "RewriteLambdaEdgeVersion_000008_")
                 .lambda(rewriteLambda)
                 .build();
         // --------------------------------------------------------------------

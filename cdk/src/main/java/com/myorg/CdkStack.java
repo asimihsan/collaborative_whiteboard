@@ -265,6 +265,18 @@ public class CdkStack extends Stack {
                                         .allowedMethods(CloudFrontAllowedMethods.GET_HEAD_OPTIONS)
                                         .build(),
 
+                                // When a user browses to the root path /, redirect them to /w/ and a random new whiteboard
+                                // identifier.
+                                Behavior.builder()
+                                        .pathPattern("/")
+                                        .compress(true)
+                                        .lambdaFunctionAssociations(Collections.singletonList(LambdaFunctionAssociation.builder()
+                                                .eventType(LambdaEdgeEventType.VIEWER_REQUEST)
+                                                .lambdaFunction(rewriteLambdaVersion)
+                                                .build()))
+                                        .allowedMethods(CloudFrontAllowedMethods.GET_HEAD_OPTIONS)
+                                        .build(),
+
                                 // Static files
                                 Behavior.builder()
                                         .isDefaultBehavior(true)
@@ -312,6 +324,7 @@ public class CdkStack extends Stack {
                 .sources(bucketDeploymentSources)
                 .destinationBucket(bucket)
                 .distribution(distribution)
+                .memoryLimit(1024)
                 .build();
         // --------------------------------------------------------------------
 
