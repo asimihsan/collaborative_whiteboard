@@ -10,6 +10,7 @@ import com.fasterxml.jackson.databind.ObjectReader;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.google.common.collect.ImmutableMap;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import exception.UnrecognizedApiResourceException;
 import lambda.dynamodb.Whiteboard;
 import lombok.SneakyThrows;
 import org.apache.logging.log4j.LogManager;
@@ -63,16 +64,35 @@ public abstract class BaseHandler implements RequestStreamHandler {
         }
         log.info("entry. input: {}", Objects.toString(inputMap));
         final ImmutableMap.Builder<String, String> outputHeaders = ImmutableMap.<String, String>builder()
-                .put("Content-Type", "application/json");
+                .put("Content-Type", "application/json")
+                .put("Access-Control-Allow-Origin", "*")
+                .put("Access-Control-Allow-Methods", "POST, OPTIONS")
+                .put("Access-Control-Allow-Credentials", "true")
+                .put("Access-Control-Allow-Headers", "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent")
+                .put("Access-Control-Max-Age", "86400");
         final ImmutableMap.Builder<String, Object> responseBuilder = ImmutableMap.<String, Object>builder()
                 .put("isBase64Encoded", false);
         final Map<String, String> inputHeaders = getHeaders(inputMap);
         log.info("inputHeaders: {}", Objects.toString(inputHeaders));
 
+        final String resource = (String) inputMap.get("resource");
+        final ApiType apiType;
+        switch (resource) {
+            case "/api/get":
+                apiType = ApiType.GetWhiteboard;
+                break;
+            case "/api/set":
+                apiType = ApiType.SetWhiteboard;
+                break;
+            default:
+                final String message = String.format("Unrecognized API resource: %s", resource);
+                throw new UnrecognizedApiResourceException(message);
+        }
+
         String outputBody = "";
         final String inputBody = (String) inputMap.get(BODY);
         try {
-            outputBody = handleRequestInternal(inputBody);
+            outputBody = handleRequestInternal(apiType, inputBody);
             responseBuilder.put(STATUS_CODE, OK_STATUS_CODE);
         } catch (final Exception e) {
             log.error("Uncaught exception: ", e);
@@ -105,5 +125,5 @@ public abstract class BaseHandler implements RequestStreamHandler {
         return (Map<String, String>) inputMap.get("headers");
     }
 
-    public abstract String handleRequestInternal(final String input);
+    public abstract String handleRequestInternal(final ApiType apiType, final String input);
 }

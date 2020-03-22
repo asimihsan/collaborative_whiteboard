@@ -1,4 +1,10 @@
 (function () {
+    var endpoint = '';
+    var local = (location.hostname === "localhost" || location.hostname === "127.0.0.1");
+    if (local) {
+        endpoint = 'https://whiteboard-preprod.ihsan.io';
+    }
+
     // See Graph.js compress() function.
     // - Replaced the pako distributed with the latest non-minified version.
     // - Skipped the URI encoding and zapGremlins parts.
@@ -16,10 +22,15 @@
 
     // https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch
     async function postData(url = '', data = {}) {
+        var mode = 'same-origin';
+        if (local) {
+            mode = 'cors';
+        }
+
         // Default options are marked with *
         const response = await fetch(url, {
             method: 'POST', // *GET, POST, PUT, DELETE, etc.
-            mode: 'same-origin', // no-cors, *cors, same-origin
+            mode: mode, // no-cors, *cors, same-origin
             cache: 'no-cache', // *default, no-cache, reload, force-cache, only-if-cached
             credentials: 'same-origin', // include, *same-origin, omit
             headers: {
@@ -32,64 +43,72 @@
         return response;
     }
 
-    function setContentToRemote(identifier, content, editor, isContentNewCallback) {
+    function setContentToRemote(identifier, content, editor, onResponseCallback, isContentNewCallback) {
         const data = {
             "identifier": identifier,
             "content": content
         };
-        postData('/api/set', data)
+        postData(endpoint + '/api/set', data)
             .then((response) => {
                 console.log("set response: " + response.ok);
-                editor.graph.setEnabled(true);
+                onResponseCallback();
+
                 if (!response.ok) {
                     console.log("set failed!");
                     console.log(response);
                     PNotify.error({
                        text: "Failed to update whiteboard on server!"
                     });
+                    editor.graph.setEnabled(true);
                     return;
                 }
                 response.json().then(function(data) {
                     if (data === null) {
                         console.log("data unexpectedly null, ignoring");
+                        editor.graph.setEnabled(true);
                         return;
                     }
                     console.log(data); // JSON data parsed by `response.json()` call
                     if (isContentNewCallback(data)) {
                         updateLocalContent(data["content"], editor);
+                        editor.graph.setEnabled(true);
                     }
                 });
 
             });
     }
 
-    function getContentFromRemote(identifier, editor, isContentNewCallback) {
+    function getContentFromRemote(identifier, editor, onResponseCallback, isContentNewCallback) {
         const data = {
             "identifier": identifier,
         };
-        postData('/api/get', data)
+        postData(endpoint + '/api/get', data)
             .then((response) => {
                 console.log("get response: " + response.ok);
+                onResponseCallback();
+
                 PNotify.closeAll();
-                editor.graph.setEnabled(true);
                 if (!response.ok) {
                     console.log("get failed!");
                     console.log(response);
                     PNotify.error({
                         text: "Failed to get whiteboard from server!"
                     });
+                    editor.graph.setEnabled(true);
                     return;
                 }
 
                 response.json().then(function(data) {
                     if (data === null) {
                         console.log("data unexpectedly null, ignoring");
+                        editor.graph.setEnabled(true);
                         return;
                     }
                     console.log(data); // JSON data parsed by `response.json()` call
                     editor.graph.setEnabled(true);
                     if (isContentNewCallback(data)) {
                         updateLocalContent(data["content"], editor);
+                        editor.graph.setEnabled(true);
                     }
                 });
             });
@@ -126,6 +145,10 @@
         mxResources.getSpecialBundle(RESOURCE_BASE, mxLanguage);
 
     var identifier = window.location.href.split("/").pop();
+    if (local) {
+        identifier = '45678';
+    }
+
     var lastGetVersion = -1;
     var lastGetContent = "";
     var suppressNextChangeEvent = false;
@@ -169,7 +192,13 @@
             var node = enc.encode(editor.graph.getModel());
             var xml = mxUtils.getPrettyXml(node);
             var xmlCompressed = compress(xml);
-            setContentToRemote(identifier, xmlCompressed, editor, function(remoteData) {
+            setContentToRemote(identifier, xmlCompressed, editor,
+                function() {
+                    if (refreshContentTimerId === -1 && focused) {
+                        refreshContentTimerId = setInterval(refreshContent, refreshInterval);
+                    }
+                },
+                function(remoteData) {
                 if (remoteData["content"] !== lastGetContent) {
                     lastGetVersion = remoteData["version"];
                     lastGetContent = remoteData["content"];
@@ -186,13 +215,18 @@
         // ------------------------------------------------------------
 
         function refreshContent() {
+            console.log("refreshContent entry");
             if (!focused) {
+                console.log("refreshContent no focus, skipping");
                 return;
             }
-            getContentFromRemote(identifier, editor, function(remoteData) {
-                if (refreshContentTimerId === -1) {
-                    refreshContentTimerId = setTimeout(refreshContent, refreshInterval);
-                }
+            getContentFromRemote(identifier, editor,
+                function() {
+                    if (refreshContentTimerId === -1 && focused) {
+                        refreshContentTimerId = setInterval(refreshContent, refreshInterval);
+                    }
+                },
+                function(remoteData) {
                 if (remoteData["content"] !== lastGetContent) {
                     lastGetVersion = remoteData["version"];
                     lastGetContent = remoteData["content"];
@@ -208,16 +242,18 @@
         refreshContent();
 
         window.onfocus = function() {
+            console.log("gained focus, ensuring refresh timer is running");
             focused = true;
             if (refreshContentTimerId === -1) {
-                refreshContentTimerId = setTimeout(refreshContent, refreshInterval);
+                refreshContentTimerId = setInterval(refreshContent, refreshInterval);
             }
         };
 
         window.onblur = function() {
+            console.log("lost focus, ensuring refresh timer is halted");
             focused = false;
             if (refreshContentTimerId > 0) {
-                clearTimeout(refreshContentTimerId);
+                clearInterval(refreshContentTimerId);
                 refreshContentTimerId = -1;
             }
         }

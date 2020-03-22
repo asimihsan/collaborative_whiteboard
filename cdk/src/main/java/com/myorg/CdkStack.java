@@ -12,6 +12,8 @@ import software.amazon.awscdk.core.Duration;
 import software.amazon.awscdk.core.RemovalPolicy;
 import software.amazon.awscdk.core.Stack;
 import software.amazon.awscdk.core.StackProps;
+import software.amazon.awscdk.services.apigateway.Cors;
+import software.amazon.awscdk.services.apigateway.CorsOptions;
 import software.amazon.awscdk.services.apigateway.EndpointConfiguration;
 import software.amazon.awscdk.services.apigateway.EndpointType;
 import software.amazon.awscdk.services.apigateway.LambdaIntegration;
@@ -112,41 +114,23 @@ public class CdkStack extends Stack {
         final Map<String, String> lambdaEnvironment = new HashMap<>();
         lambdaEnvironment.put("WHITEBOARD_TABLE_NAME", whiteboardTable.getTableName());
 
-        final Function getWhiteboardLambda = Function.Builder.create(this, "GetWhiteboardLambda")
+        final Function whiteboardLambda = Function.Builder.create(this, "WhiteboardLambda")
                 .runtime(Runtime.JAVA_11)    // execution environment
                 .code(Code.fromAsset("../lambda/build/distributions/collaborative_whiteboard.zip"))  // code loaded from the "lambda" directory
-                .handler("lambda.GetWhiteboard::handleRequest")
-                .memorySize(512)
+                .handler("lambda.WhiteboardHandler::handleRequest")
+                .memorySize(1024)
                 .timeout(Duration.seconds(10))
                 .environment(lambdaEnvironment)
                 .build();
-        final IVersion getWhiteboardLambdaVersion = Version.Builder.create(this, "GetWhiteboardLambdaVersion_000004_")
-                .lambda(getWhiteboardLambda)
+        final IVersion whiteboardLambdaVersion = Version.Builder.create(this, "WhiteboardLambdaVersion_000006_")
+                .lambda(whiteboardLambda)
                 .provisionedConcurrentExecutions(0)
                 .build();
-        final IAlias getWhiteboardLambdaLatest = Alias.Builder.create(this, "GetWhiteboardLambdaAlias")
-                .version(getWhiteboardLambdaVersion)
+        final IAlias whiteboardLambdaLatest = Alias.Builder.create(this, "WhiteboardLambdaAlias")
+                .version(whiteboardLambdaVersion)
                 .aliasName("LATEST")
                 .build();
-        whiteboardTable.grantReadWriteData(getWhiteboardLambda);
-
-        final Function setWhiteboardLambda = Function.Builder.create(this, "SetWhiteboardLambda")
-                .runtime(Runtime.JAVA_11)    // execution environment
-                .code(Code.fromAsset("../lambda/build/distributions/collaborative_whiteboard.zip"))  // code loaded from the "lambda" directory
-                .handler("lambda.SetWhiteboard::handleRequest")
-                .memorySize(512)
-                .timeout(Duration.seconds(10))
-                .environment(lambdaEnvironment)
-                .build();
-        final IVersion setWhiteboardLambdaVersion = Version.Builder.create(this, "SetWhiteboardLambdaVersion_000004_")
-                .lambda(setWhiteboardLambda)
-                .provisionedConcurrentExecutions(0)
-                .build();
-        final IAlias setWhiteboardLambdaLatest = Alias.Builder.create(this, "SetWhiteboardLambdaAlias")
-                .version(setWhiteboardLambdaVersion)
-                .aliasName("LATEST")
-                .build();
-        whiteboardTable.grantReadWriteData(setWhiteboardLambda);
+        whiteboardTable.grantReadWriteData(whiteboardLambda);
         // --------------------------------------------------------------------
 
         // --------------------------------------------------------------------
@@ -194,15 +178,23 @@ public class CdkStack extends Stack {
                 .endpointConfiguration(EndpointConfiguration.builder()
                         .types(Collections.singletonList(EndpointType.REGIONAL))
                         .build())
+                .defaultCorsPreflightOptions(CorsOptions.builder()
+                        .allowOrigins(Cors.ALL_ORIGINS)
+                        .allowCredentials(true)
+                        .allowHeaders(Cors.DEFAULT_HEADERS)
+                        .allowMethods(ImmutableList.of("POST", "OPTIONS"))
+                        .maxAge(Duration.seconds(86400))
+                        .build())
                 .build();
         final Resource rootResource = api.getRoot().addResource("api");
+
         final Resource getResource = rootResource.addResource("get");
-        final LambdaIntegration getWhiteboardIntegration = new LambdaIntegration(getWhiteboardLambdaLatest,
+        final LambdaIntegration getWhiteboardIntegration = new LambdaIntegration(whiteboardLambdaLatest,
                 LambdaIntegrationOptions.builder().proxy(true).build());
         getResource.addMethod("POST", getWhiteboardIntegration);
 
         final Resource setResource = rootResource.addResource("set");
-        final LambdaIntegration setWhiteboardIntegration = new LambdaIntegration(setWhiteboardLambdaLatest,
+        final LambdaIntegration setWhiteboardIntegration = new LambdaIntegration(whiteboardLambdaLatest,
                 LambdaIntegrationOptions.builder().proxy(true).build());
         setResource.addMethod("POST", setWhiteboardIntegration);
         // --------------------------------------------------------------------
