@@ -17,8 +17,13 @@ import lambda.dynamodb.Whiteboard;
 public class Clients {
     private static final AmazonDynamoDB dynamoDb = AmazonDynamoDBClientBuilder.defaultClient();
     private static final String WHITEBOARD_TABLE_NAME = System.getenv("WHITEBOARD_TABLE_NAME");
+    private static final DynamoDBTableMapper<Whiteboard, String, ?> whiteboardDynamoDbMapper
+            = Clients.createWhiteboardDynamoDbMapper();
+    static {
+        whiteboardDynamoDbMapper.load("12345");
+    }
 
-    public static DynamoDBTableMapper<Whiteboard, String, ?> createWhiteboardDynamoDbMapper() {
+    private static DynamoDBTableMapper<Whiteboard, String, ?> createWhiteboardDynamoDbMapper() {
         final DynamoDBMapperConfig config = DynamoDBMapperConfig.builder()
                 .withSaveBehavior(SaveBehavior.UPDATE)
                 .withConsistentReads(ConsistentReads.EVENTUAL)
@@ -34,4 +39,10 @@ public class Clients {
         final DynamoDBMapper dynamoDbMapper = new DynamoDBMapper(dynamoDb, config);
         return dynamoDbMapper.newTableMapper(Whiteboard.class);
     }
+
+    public static DynamoDBTableMapper<Whiteboard, String, ?> getWhiteboardDynamoDbMapper() {
+        return whiteboardDynamoDbMapper;
+    }
+
+
 }

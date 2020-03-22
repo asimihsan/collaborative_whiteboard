@@ -14,6 +14,65 @@
         return tmp;
     }
 
+    // https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch
+    async function postData(url = '', data = {}) {
+        // Default options are marked with *
+        const response = await fetch(url, {
+            method: 'POST', // *GET, POST, PUT, DELETE, etc.
+            mode: 'same-origin', // no-cors, *cors, same-origin
+            cache: 'no-cache', // *default, no-cache, reload, force-cache, only-if-cached
+            credentials: 'same-origin', // include, *same-origin, omit
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            redirect: 'error', // manual, *follow, error
+            referrerPolicy: 'no-referrer', // no-referrer, *client
+            body: JSON.stringify(data) // body data type must match "Content-Type" header
+        });
+        return await response.json(); // parses JSON response into native JavaScript objects
+    }
+
+    function setContentToRemote(identifier, content, editor, isContentNewCallback) {
+        const data = {
+            "identifier": identifier,
+            "content": content
+        };
+        postData('/api/set', data)
+            .then((data) => {
+                console.log("set response");
+                console.log(data); // JSON data parsed by `response.json()` call
+                if (isContentNewCallback(data)) {
+                    updateLocalContent(data["content"], editor);
+                }
+            });
+    }
+
+    function getContentFromRemote(identifier, editor, isContentNewCallback) {
+        const data = {
+            "identifier": identifier,
+        };
+        postData('/api/get', data)
+            .then((data) => {
+                console.log("get response");
+                console.log(data); // JSON data parsed by `response.json()` call
+                if (isContentNewCallback(data)) {
+                    updateLocalContent(data["content"], editor);
+                }
+            });
+    }
+
+    function updateLocalContent(content, editor) {
+        if (content === "") {
+            console.log("content is empty, not setting it");
+            return;
+        }
+        editor.undoManager.clear();
+        var xml = mxUtils.parseXml(decompress(content));
+        var dec = new mxCodec(xml.documentElement.ownerDocument);
+        dec.decode(xml.documentElement, editor.graph.getModel());
+        editor.undoManager.clear();
+    }
+
     var editorUiInit = EditorUi.prototype.init;
 
     EditorUi.prototype.init = function () {
@@ -31,6 +90,10 @@
     mxResources.loadDefaultBundle = false;
     var bundle = mxResources.getDefaultBundle(RESOURCE_BASE, mxLanguage) ||
         mxResources.getSpecialBundle(RESOURCE_BASE, mxLanguage);
+
+    var identifier = window.location.href.split("/").pop();
+    var lastGetVersion = -1;
+    var lastGetContent = "";
 
     // Fixes possible asynchronous requests
     mxUtils.getAll([bundle, STYLE_PATH + '/default.xml'], function (xhr) {
@@ -60,27 +123,29 @@
             var node = enc.encode(editor.graph.getModel());
             var xml = mxUtils.getPrettyXml(node);
             var xmlCompressed = compress(xml);
-            // console.log("new proposed document");
-            // console.log(xmlCompressed);
+            setContentToRemote(identifier, xmlCompressed, editor, function(remoteData) {
+                if (remoteData["content"] !== lastGetContent) {
+                    lastGetVersion = remoteData["version"];
+                    lastGetContent = remoteData["content"];
+                    return true;
+                }
+                return false;
+            });
 
             // var changes = event.getProperty('edit').changes;
             // console.log("changes");
             // console.log(changes);
-
         }));
         // ------------------------------------------------------------
 
-        // ------------------------------------------------------------
-        //	This is an example of overwriting the current state with some whole document.
-        // ------------------------------------------------------------
-        editor.undoManager.clear();
-        var exampleSerialized = "eJy9kU0OgjAQRveeopkL8GMUEqgbF6xceYKGjrRJsaSMUm5vEWI0xI0LV/My7cz3kilbXznRqZOVaA4bxkpnLU0QsPVHNIZpySGGaN1MgHXC4ZW+vGfA7sLckAOwnkYTYFCa8NyJGvkQcgtFreFJIfoOa+IX7VEWYQodof8ISGDe/0yo0LZIbmThT7qPgY0ctmmog5akOOQBFepG0cyi59AsMy/RaDZda+d/0c4W7d3v2mU0H2vqvV/xAbZfjEI=";
-        var xml = mxUtils.parseXml(decompress(exampleSerialized));
-        var dec = new mxCodec(xml.documentElement.ownerDocument);
-        dec.decode(xml.documentElement, editor.graph.getModel());
-        editor.undoManager.clear();
-
-        // ------------------------------------------------------------
+        getContentFromRemote(identifier, editor, function(remoteData) {
+            if (remoteData["content"] !== lastGetContent) {
+                lastGetVersion = remoteData["version"];
+                lastGetContent = remoteData["content"];
+                return true;
+            }
+            return false;
+        });
 
     }, function () {
         document.body.innerHTML = '<center style="margin-top:10%;">Error loading resource files. Please check browser console.</center>';

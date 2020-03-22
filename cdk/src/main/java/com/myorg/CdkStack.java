@@ -1,6 +1,11 @@
 package com.myorg;
 
 
+import com.google.common.base.Charsets;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.io.Resources;
+import lombok.SneakyThrows;
 import software.amazon.awscdk.core.CfnOutput;
 import software.amazon.awscdk.core.Construct;
 import software.amazon.awscdk.core.Duration;
@@ -15,11 +20,15 @@ import software.amazon.awscdk.services.apigateway.Resource;
 import software.amazon.awscdk.services.apigateway.RestApi;
 import software.amazon.awscdk.services.certificatemanager.DnsValidatedCertificate;
 import software.amazon.awscdk.services.certificatemanager.ICertificate;
+import software.amazon.awscdk.services.cloudformation.CustomResource;
+import software.amazon.awscdk.services.cloudformation.CustomResourceProvider;
 import software.amazon.awscdk.services.cloudfront.Behavior;
 import software.amazon.awscdk.services.cloudfront.CloudFrontAllowedMethods;
 import software.amazon.awscdk.services.cloudfront.CloudFrontWebDistribution;
 import software.amazon.awscdk.services.cloudfront.CloudFrontWebDistributionProps;
 import software.amazon.awscdk.services.cloudfront.CustomOriginConfig;
+import software.amazon.awscdk.services.cloudfront.LambdaEdgeEventType;
+import software.amazon.awscdk.services.cloudfront.LambdaFunctionAssociation;
 import software.amazon.awscdk.services.cloudfront.PriceClass;
 import software.amazon.awscdk.services.cloudfront.S3OriginConfig;
 import software.amazon.awscdk.services.cloudfront.SSLMethod;
@@ -32,9 +41,16 @@ import software.amazon.awscdk.services.dynamodb.Attribute;
 import software.amazon.awscdk.services.dynamodb.AttributeType;
 import software.amazon.awscdk.services.dynamodb.BillingMode;
 import software.amazon.awscdk.services.dynamodb.Table;
+import software.amazon.awscdk.services.iam.Effect;
+import software.amazon.awscdk.services.iam.PolicyStatement;
+import software.amazon.awscdk.services.lambda.Alias;
 import software.amazon.awscdk.services.lambda.Code;
 import software.amazon.awscdk.services.lambda.Function;
+import software.amazon.awscdk.services.lambda.IAlias;
+import software.amazon.awscdk.services.lambda.IVersion;
 import software.amazon.awscdk.services.lambda.Runtime;
+import software.amazon.awscdk.services.lambda.SingletonFunction;
+import software.amazon.awscdk.services.lambda.Version;
 import software.amazon.awscdk.services.route53.ARecord;
 import software.amazon.awscdk.services.route53.HostedZone;
 import software.amazon.awscdk.services.route53.HostedZoneProviderProps;
@@ -48,6 +64,7 @@ import software.amazon.awscdk.services.s3.deployment.BucketDeployment;
 import software.amazon.awscdk.services.s3.deployment.ISource;
 import software.amazon.awscdk.services.s3.deployment.Source;
 
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -55,13 +72,13 @@ import java.util.List;
 import java.util.Map;
 
 public class CdkStack extends Stack {
-    public CdkStack(final Construct scope, final String id) {
-        this(scope, id, null, null);
-    }
-
+    @SneakyThrows(IOException.class)
     public CdkStack(final Construct scope,
                     final String id,
                     final String domainName,
+                    final String rewriteLambdaStackName,
+                    final String rewriteLambdaOutputName,
+                    final String rewriteLambdaCodeHash,
                     final StackProps props) {
         super(scope, id, props);
 
@@ -79,6 +96,11 @@ public class CdkStack extends Stack {
 
         // --------------------------------------------------------------------
         //  Lambda function and other resources for CRUD of whiteboards.
+        //
+        //  Note that you must change the identifier of the Lambda versions to re-deploy Lambda code. Lambda
+        //  versions are immutable, so even if you update the underlying Lambda the version stays the same.
+        //
+        //  TODO use CodeDeploy to deploy Lambdas.
         // --------------------------------------------------------------------
         final Table whiteboardTable = Table.Builder.create(this, "WhiteboardTable")
                 .partitionKey(Attribute.builder()
@@ -98,6 +120,14 @@ public class CdkStack extends Stack {
                 .timeout(Duration.seconds(10))
                 .environment(lambdaEnvironment)
                 .build();
+        final IVersion getWhiteboardLambdaVersion = Version.Builder.create(this, "GetWhiteboardLambdaVersion_000004_")
+                .lambda(getWhiteboardLambda)
+                .provisionedConcurrentExecutions(0)
+                .build();
+        final IAlias getWhiteboardLambdaLatest = Alias.Builder.create(this, "GetWhiteboardLambdaAlias")
+                .version(getWhiteboardLambdaVersion)
+                .aliasName("LATEST")
+                .build();
         whiteboardTable.grantReadWriteData(getWhiteboardLambda);
 
         final Function setWhiteboardLambda = Function.Builder.create(this, "SetWhiteboardLambda")
@@ -108,7 +138,53 @@ public class CdkStack extends Stack {
                 .timeout(Duration.seconds(10))
                 .environment(lambdaEnvironment)
                 .build();
+        final IVersion setWhiteboardLambdaVersion = Version.Builder.create(this, "SetWhiteboardLambdaVersion_000004_")
+                .lambda(setWhiteboardLambda)
+                .provisionedConcurrentExecutions(0)
+                .build();
+        final IAlias setWhiteboardLambdaLatest = Alias.Builder.create(this, "SetWhiteboardLambdaAlias")
+                .version(setWhiteboardLambdaVersion)
+                .aliasName("LATEST")
+                .build();
         whiteboardTable.grantReadWriteData(setWhiteboardLambda);
+        // --------------------------------------------------------------------
+
+        // --------------------------------------------------------------------
+        //  Custom resource to get the Lambda@Edge name from the us-east-1 stack. CDK does not support this because
+        //  it's in a different region, and Lambda@Edge only supports functions created in us-east-1.
+        //
+        //  See: https://github.com/aws/aws-cdk/issues/1575#issuecomment-480738659
+        // --------------------------------------------------------------------
+        final String stackLookupLambdaCode = Resources.toString(
+                Resources.getResource("cfn_stack_lookup.js"), Charsets.UTF_8);
+        final SingletonFunction stackLookupLambda = SingletonFunction.Builder.create(this, "StackLookupLambda")
+                .uuid("f7d4f730-4ee1-11e8-9c2d-fa7ae01bbebc")
+                .handler("index.handler")
+                .runtime(Runtime.NODEJS_12_X)
+                .code(Code.fromInline(stackLookupLambdaCode))
+                .timeout(Duration.seconds(60))
+                .build();
+
+        final CustomResourceProvider stackLookupProvider = CustomResourceProvider.fromLambda(stackLookupLambda);
+        stackLookupLambda.addToRolePolicy(PolicyStatement.Builder.create()
+                .effect(Effect.ALLOW)
+                .actions(Collections.singletonList("cloudformation:DescribeStacks"))
+                .resources(Collections.singletonList(
+                        String.format("arn:aws:cloudformation:*:*:stack/%s/*", rewriteLambdaStackName)))
+                .build());
+        final CustomResource stackLookup = CustomResource.Builder.create(this, "CfnStackLookupOutput")
+                .provider(stackLookupProvider)
+                .properties(ImmutableMap.of(
+                        "StackName", rewriteLambdaStackName,
+                        "OutputKey", rewriteLambdaOutputName,
+
+                        // Need a key that changes when the rewrite Lambda code changes, or else we never re-deploy it.
+                        "LambdaHash", rewriteLambdaCodeHash
+
+                ))
+                .build();
+        final String rewriteLambdaArn = stackLookup.getAttString("Output");
+        final IVersion rewriteLambdaVersion = Version.fromVersionArn(this, "RewriteLambda", rewriteLambdaArn);
         // --------------------------------------------------------------------
 
         // --------------------------------------------------------------------
@@ -121,12 +197,12 @@ public class CdkStack extends Stack {
                 .build();
         final Resource rootResource = api.getRoot().addResource("api");
         final Resource getResource = rootResource.addResource("get");
-        final LambdaIntegration getWhiteboardIntegration = new LambdaIntegration(getWhiteboardLambda,
+        final LambdaIntegration getWhiteboardIntegration = new LambdaIntegration(getWhiteboardLambdaLatest,
                 LambdaIntegrationOptions.builder().proxy(true).build());
         getResource.addMethod("POST", getWhiteboardIntegration);
 
         final Resource setResource = rootResource.addResource("set");
-        final LambdaIntegration setWhiteboardIntegration = new LambdaIntegration(setWhiteboardLambda,
+        final LambdaIntegration setWhiteboardIntegration = new LambdaIntegration(setWhiteboardLambdaLatest,
                 LambdaIntegrationOptions.builder().proxy(true).build());
         setResource.addMethod("POST", setWhiteboardIntegration);
         // --------------------------------------------------------------------
@@ -156,13 +232,14 @@ public class CdkStack extends Stack {
         // --------------------------------------------------------------------
         //  CloudFront distribution for static assets and backend.
         // --------------------------------------------------------------------
+        final String apiGatewayDomainName = String.format("%s.execute-api.%s.amazonaws.com",
+                api.getRestApiId(),
+                props.getEnv().getRegion());
         final List<SourceConfiguration> sourceConfigurations = Arrays.asList(
                 SourceConfiguration.builder()
                         .customOriginSource(CustomOriginConfig.builder()
-
-                                // TODO FIXME
-                                .domainName("f9di5lbvmd.execute-api.us-west-2.amazonaws.com")
-
+                                .domainName(apiGatewayDomainName)
+                                .originKeepaliveTimeout(Duration.seconds(60))
                                 .build())
                         .originPath("/prod")
                         .behaviors(Collections.singletonList(Behavior.builder()
@@ -170,14 +247,30 @@ public class CdkStack extends Stack {
                                 .allowedMethods(CloudFrontAllowedMethods.ALL)
                                 .build()))
                         .build(),
+
                 SourceConfiguration.builder()
                         .s3OriginSource(S3OriginConfig.builder()
                                 .s3BucketSource(bucket)
                                 .build())
-                        .behaviors(Collections.singletonList(Behavior.builder()
-                                .isDefaultBehavior(true)
-                                .compress(true)
-                                .build()))
+                        .behaviors(ImmutableList.of(
+                                // When a user browses to e.g. /w/12345, we want to just load the same static assets as
+                                // from root but keep the path URI for the JavaScript to parse out the whiteboard identifier.
+                                Behavior.builder()
+                                        .pathPattern("/w/*")
+                                        .compress(true)
+                                        .lambdaFunctionAssociations(Collections.singletonList(LambdaFunctionAssociation.builder()
+                                                .eventType(LambdaEdgeEventType.VIEWER_REQUEST)
+                                                .lambdaFunction(rewriteLambdaVersion)
+                                                .build()))
+                                        .allowedMethods(CloudFrontAllowedMethods.GET_HEAD_OPTIONS)
+                                        .build(),
+
+                                // Static files
+                                Behavior.builder()
+                                        .isDefaultBehavior(true)
+                                        .compress(true)
+                                        .allowedMethods(CloudFrontAllowedMethods.GET_HEAD_OPTIONS)
+                                        .build()))
                         .build()
 
         );
@@ -224,12 +317,17 @@ public class CdkStack extends Stack {
 
         CfnOutput.Builder.create(this, "ApiGatewayDomainNameExport")
                 .exportName("ApiGatewayDomainNameExport")
-                .value(api.getUrl())
+                .value(apiGatewayDomainName)
                 .build();
 
         CfnOutput.Builder.create(this, "CloudfrontDomainNameExport")
                 .exportName("CloudfrontDomainNameExport")
                 .value(distribution.getDomainName())
+                .build();
+
+        CfnOutput.Builder.create(this, "RewriteLambdaArn")
+                .exportName("RewriteLambdaArn")
+                .value(rewriteLambdaArn)
                 .build();
     }
 }

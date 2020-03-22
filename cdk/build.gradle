@@ -1,6 +1,7 @@
 plugins {
     id 'java'
     id 'application'
+    id "io.freefair.lombok" version "5.0.0-rc6"
 }
 
 repositories {

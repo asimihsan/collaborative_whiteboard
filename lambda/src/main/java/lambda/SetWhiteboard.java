@@ -1,46 +1,49 @@
 package lambda;
 
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBTableMapper;
-import com.amazonaws.services.lambda.runtime.Context;
-import com.amazonaws.services.lambda.runtime.RequestHandler;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectReader;
+import com.fasterxml.jackson.databind.ObjectWriter;
 import com.google.common.base.Preconditions;
 import lambda.dynamodb.Whiteboard;
+import lombok.SneakyThrows;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import javax.annotation.Nullable;
+import java.io.IOException;
 
-public class SetWhiteboard implements RequestHandler<SetWhiteboardRequest, SetWhiteboardResponse> {
+public class SetWhiteboard extends BaseHandler {
     private static final Logger log = LogManager.getLogger(SetWhiteboard.class);
     private static final DynamoDBTableMapper<Whiteboard, String, ?> dynamoDbTable =
-            Clients.createWhiteboardDynamoDbMapper();
+            Clients.getWhiteboardDynamoDbMapper();
 
+    private static final TypeReference<SetWhiteboardRequest> setWhiteboardRequestTypeReference =
+            new TypeReference<>() {};
+    private static final ObjectMapper objectMapper = new ObjectMapper();
+    private static final ObjectReader setWhiteboardRequestObjectReader =
+            objectMapper.readerFor(setWhiteboardRequestTypeReference);
+    private static final TypeReference<SetWhiteboardResponse> setWhiteboardResponseTypeReference =
+            new TypeReference<>() {};
+    private static final ObjectWriter setWhiteboardResponseWriter =
+            objectMapper.writerFor(setWhiteboardResponseTypeReference);
+
+    @SneakyThrows({JsonProcessingException.class, IOException.class})
     @Override
-    public SetWhiteboardResponse handleRequest(SetWhiteboardRequest input, Context context) {
-        log.info("SetWhiteboard entry. input.identifier: {}", input.getIdentifier());
+    public String handleRequestInternal(String input) {
+        final SetWhiteboardRequest request = setWhiteboardRequestObjectReader.readValue(input);
 
-        final Whiteboard existingWhiteboard = dynamoDbTable.load(input.getIdentifier());
-        Preconditions.checkArgument(existingWhiteboard != null, "Could not find whiteboard");
+        Whiteboard whiteboard = dynamoDbTable.load(request.getIdentifier());
+        Preconditions.checkState(whiteboard != null);
+        whiteboard.setContent(request.getContent());
+        dynamoDbTable.saveIfExists(whiteboard);
+        log.info("whiteboard version {}", whiteboard.getVersion());
 
-        final Whiteboard newWhiteboard = mergeWhiteboards(existingWhiteboard, input.getContent());
-        if (newWhiteboard == null) {
-            log.info("Could not merge whiteboards");
-            return new SetWhiteboardResponse(input.getIdentifier(), false, existingWhiteboard.getContent());
-        }
-
-        dynamoDbTable.saveIfExists(newWhiteboard);
-
-        return new SetWhiteboardResponse(newWhiteboard.getIdentifier(), true, newWhiteboard.getContent());
-    }
-
-    @Nullable
-    private Whiteboard mergeWhiteboards(final Whiteboard existingWhiteboard, final String proposedContent) {
-        final Whiteboard newWhiteboard = new Whiteboard();
-        newWhiteboard.setIdentifier(existingWhiteboard.getIdentifier());
-
-        // TODO do something more clever here like a merge, which could fail.
-        newWhiteboard.setContent(proposedContent);
-
-        return newWhiteboard;
+        final SetWhiteboardResponse response = new SetWhiteboardResponse(
+                whiteboard.getIdentifier(),
+                whiteboard.getContent(),
+                whiteboard.getVersion());
+        return setWhiteboardResponseWriter.writeValueAsString(response);
     }
 }

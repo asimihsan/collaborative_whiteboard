@@ -1,37 +1,16 @@
 package lambda;
 
-import com.google.common.base.MoreObjects;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
+@AllArgsConstructor
+@NoArgsConstructor
+@Getter
+@Setter
 public class GetWhiteboardResponse {
     private String identifier;
     private String content;
-
-    public GetWhiteboardResponse(final String identifier, final String content) {
-        this.identifier = identifier;
-        this.content = content;
-    }
-
-    public String getIdentifier() {
-        return identifier;
-    }
-
-    public void setIdentifier(String identifier) {
-        this.identifier = identifier;
-    }
-
-    public String getContent() {
-        return content;
-    }
-
-    public void setContent(String content) {
-        this.content = content;
-    }
-
-    @Override
-    public String toString() {
-        return MoreObjects.toStringHelper(this)
-                .add("identifier", identifier)
-                .add("content", content)
-                .toString();
-    }
+    private Long version;
 }
