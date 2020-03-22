@@ -5,6 +5,42 @@
         endpoint = 'https://whiteboard-preprod.ihsan.io';
     }
 
+    // See: https://developer.mozilla.org/en-US/docs/Web/API/Web_Storage_API/Using_the_Web_Storage_API#Feature-detecting_localStorage
+    function storageAvailable(type) {
+        var storage;
+        try {
+            storage = window[type];
+            var x = '__storage_test__';
+            storage.setItem(x, x);
+            storage.removeItem(x);
+            return true;
+        }
+        catch(e) {
+            return e instanceof DOMException && (
+                // everything except Firefox
+                e.code === 22 ||
+                // Firefox
+                e.code === 1014 ||
+                // test name field too, because code might not be present
+                // everything except Firefox
+                e.name === 'QuotaExceededError' ||
+                // Firefox
+                e.name === 'NS_ERROR_DOM_QUOTA_REACHED') &&
+                // acknowledge QuotaExceededError only if there's something already stored
+                (storage && storage.length !== 0);
+        }
+    }
+
+    function guid() {
+        function s4() {
+            return Math.floor((1 + Math.random()) * 0x10000)
+                .toString(16)
+                .substring(1);
+        }
+        return s4() + s4() + '-' + s4() + '-' + s4() + '-' +
+            s4() + '-' + s4() + s4() + s4();
+    }
+
     // See Graph.js compress() function.
     // - Replaced the pako distributed with the latest non-minified version.
     // - Skipped the URI encoding and zapGremlins parts.
@@ -146,7 +182,7 @@
 
     var identifier = window.location.href.split("/").pop();
     if (local) {
-        identifier = '45678';
+        identifier = 'abcdef';
     }
 
     var lastGetVersion = -1;
@@ -155,6 +191,20 @@
     var focused = true;
     var refreshContentTimerId = -1;
     var refreshInterval = 1000;
+
+    // clientId is a random UUID that we prefix MxGraph cells with. This is part of the conflict-resolution done
+    // on the server side. Since we expect users to refresh the browser sometimes we cache this in session storage
+    // to try and keep it the same.
+    var clientId;
+
+    if (!storageAvailable('sessionStorage') || !sessionStorage.getItem('clientId')) {
+        clientId = guid();
+        if (storageAvailable('sessionStorage')) {
+            sessionStorage.setItem('clientId', clientId);
+        }
+    } else {
+        clientId = sessionStorage.getItem('clientId');
+    }
 
     // Fixes possible asynchronous requests
     mxUtils.getAll([bundle, STYLE_PATH + '/default.xml'], function (xhr) {
@@ -171,6 +221,8 @@
         var chromeless = false;
         var editor = new Editor(chromeless, themes);
         editor.graph.setEnabled(false);
+        editor.graph.model.prefix = clientId + "_";
+
         new EditorUi(editor);
 
         // ------------------------------------------------------------
