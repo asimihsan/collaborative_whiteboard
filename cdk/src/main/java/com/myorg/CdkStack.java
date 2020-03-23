@@ -290,6 +290,7 @@ public class CdkStack extends Stack {
                                         .build()))
                         .viewerProtocolPolicy(ViewerProtocolPolicy.REDIRECT_TO_HTTPS)
                         .priceClass(PriceClass.PRICE_CLASS_ALL)
+                        .defaultRootObject("")
                         .build());
         // --------------------------------------------------------------------
 

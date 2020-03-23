@@ -44,7 +44,7 @@ exports.handler = (event, context, callback) => {
         callback(null, request);
     }
 
-    console.log("re-writing URI to get / from the origin");
-    request.uri = "/";
+    console.log("re-writing URI to get /index.html from the S3 origin");
+    request.uri = "/index.html";
     return callback(null, request);
 };

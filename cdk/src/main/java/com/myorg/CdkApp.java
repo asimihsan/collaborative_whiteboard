@@ -37,7 +37,7 @@ public class CdkApp {
         final String rewriteLambdaStackName = "preprod-WhiteboardIhsanIoRewriteLambdaCdkStack";
         final String rewriteLambdaOutputName = "RewriteLambdaName";
         final String rewriteLambdaCode = Resources.toString(
-                Resources.getResource("cfn_stack_lookup.js"), Charsets.UTF_8);
+                Resources.getResource("rewrite.js"), Charsets.UTF_8);
         final String rewriteLambdaCodeHash = Hashing.sha256()
                 .hashString(rewriteLambdaCode, StandardCharsets.UTF_8).toString();
         final RewriteLambdaEdgeStack preprodRewriteLambdaEdgeStack = new RewriteLambdaEdgeStack(
@@ -50,7 +50,7 @@ public class CdkApp {
                         .build());
         // --------------------------------------------------------------------
 
-        final String preprodLambdaVersion = "000010";
+        final String preprodLambdaVersion = "000011";
         new CdkStack(app, "preprod-WhiteboardIhsanIoCdkStack",
                 "whiteboard-preprod.ihsan.io",
                 rewriteLambdaStackName,
