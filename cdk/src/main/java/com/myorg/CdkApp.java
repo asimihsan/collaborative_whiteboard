@@ -50,7 +50,7 @@ public class CdkApp {
                         .build());
         // --------------------------------------------------------------------
 
-        final String preprodLambdaVersion = "000009";
+        final String preprodLambdaVersion = "000010";
         new CdkStack(app, "preprod-WhiteboardIhsanIoCdkStack",
                 "whiteboard-preprod.ihsan.io",
                 rewriteLambdaStackName,

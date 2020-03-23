@@ -142,11 +142,6 @@ public class MxGraphDocumentMerger {
                 continue;
             }
             if (newIndex >= newNodes.size()) {
-                final NodeWrapper oldNode = oldNodes.get(oldIndex);
-                if (!seenIds.contains(oldNode.getNodeId())) {
-                    mergedNodes.add(oldNode);
-                    seenIds.add(oldNode.getNodeId());
-                }
                 oldIndex++;
                 continue;
             }

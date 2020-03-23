@@ -35,6 +35,24 @@ class MxGraphDocumentMergerTest {
         Assertions.assertEquals(expectedFile, merged);
     }
 
+    /**
+     * If the user deletes a node, then check the merged document reflects the node is deleted.
+     */
+    @Test
+    public void testDeleteOneNode() {
+        // === given ===
+        final String oldFile = loadResourcesFile("delete_one/doc002_old.xml");
+        final String newFile = loadResourcesFile("delete_one/doc002_new.xml");
+        final String expectedFile = loadResourcesFile("delete_one/doc002_expected.xml");
+
+        // === when ===
+        final String merged = merger.merge(oldFile, newFile);
+
+        // === then ===
+        System.out.println(merged);
+        Assertions.assertEquals(expectedFile, merged);
+    }
+
     @SneakyThrows(IOException.class)
     private static String loadResourcesFile(final String filename) {
         return Resources.toString(Resources.getResource(filename), StandardCharsets.UTF_8);
