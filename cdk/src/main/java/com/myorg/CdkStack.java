@@ -77,11 +77,13 @@ public class CdkStack extends Stack {
     @SneakyThrows(IOException.class)
     public CdkStack(final Construct scope,
                     final String id,
+                    final String shortStackName,
                     final String domainName,
                     final String rewriteLambdaStackName,
                     final String rewriteLambdaOutputName,
                     final String rewriteLambdaCodeHash,
                     final String lambdaVersion,
+                    final Integer lambdaProvisionedConcurrency,
                     final StackProps props) {
         super(scope, id, props);
 
@@ -119,7 +121,7 @@ public class CdkStack extends Stack {
                 .runtime(Runtime.JAVA_11)    // execution environment
                 .code(Code.fromAsset("../lambda/build/distributions/collaborative_whiteboard.zip"))  // code loaded from the "lambda" directory
                 .handler("lambda.WhiteboardHandler::handleRequest")
-                .memorySize(1024)
+                .memorySize(512)
                 .timeout(Duration.seconds(10))
                 .environment(lambdaEnvironment)
                 .build();
@@ -323,17 +325,17 @@ public class CdkStack extends Stack {
         // --------------------------------------------------------------------
 
         CfnOutput.Builder.create(this, "ApiGatewayDomainNameExport")
-                .exportName("ApiGatewayDomainNameExport")
+                .exportName(String.format("%s-%s", shortStackName, "ApiGatewayDomainNameExport"))
                 .value(apiGatewayDomainName)
                 .build();
 
         CfnOutput.Builder.create(this, "CloudfrontDomainNameExport")
-                .exportName("CloudfrontDomainNameExport")
+                .exportName(String.format("%s-%s", shortStackName, "CloudfrontDomainNameExport"))
                 .value(distribution.getDomainName())
                 .build();
 
         CfnOutput.Builder.create(this, "RewriteLambdaArn")
-                .exportName("RewriteLambdaArn")
+                .exportName(String.format("%s-%s", shortStackName, "RewriteLambdaArn"))
                 .value(rewriteLambdaArn)
                 .build();
     }

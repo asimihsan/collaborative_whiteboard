@@ -29,6 +29,7 @@ public class RewriteLambdaEdgeStack extends Stack {
                     final Construct scope,
                     final String id,
                     final String outputName,
+                    final String rewriteLambdaVersionNumber,
                     final StackProps props) {
         super(scope, id, props);
 
@@ -54,7 +55,7 @@ public class RewriteLambdaEdgeStack extends Stack {
                         .build()
                 )
                 .build();
-        final IVersion rewriteLambdaVersion = Version.Builder.create(this, "RewriteLambdaEdgeVersion_000009_")
+        final IVersion rewriteLambdaVersion = Version.Builder.create(this, String.format("RewriteLambdaEdgeVersion_%s_", rewriteLambdaVersionNumber))
                 .lambda(rewriteLambda)
                 .build();
         // --------------------------------------------------------------------

@@ -31,43 +31,89 @@ public class CdkApp {
                 .region("us-west-2")
                 .build();
 
-        // --------------------------------------------------------------------
-        //  Lambda@Edge functions must be in us-east-1, so make pre-prod / prod ones here.
-        // --------------------------------------------------------------------
-        final String rewriteLambdaStackName = "preprod-WhiteboardIhsanIoRewriteLambdaCdkStack";
-        final String rewriteLambdaOutputName = "RewriteLambdaName";
+        final Environment prodLambdaEdge = Environment.builder()
+                .account("519160639284")
+                .region("us-east-1")
+                .build();
+
         final String rewriteLambdaCode = Resources.toString(
                 Resources.getResource("rewrite.js"), Charsets.UTF_8);
         final String rewriteLambdaCodeHash = Hashing.sha256()
                 .hashString(rewriteLambdaCode, StandardCharsets.UTF_8).toString();
+
+        // --------------------------------------------------------------------
+        //  Pre-prod.
+        //
+        //  Lambda@Edge functions must be in us-east-1. Hence separate stack.
+        // --------------------------------------------------------------------
+        final String preprodRewriteLambdaStackName = "preprod-WhiteboardIhsanIoRewriteLambdaCdkStack";
+        final String preprodShortStackName = "preprod";
+        final String preprodRewriteLambdaVersionNumber = "000009";
+        final String preprodRewriteLambdaOutputName = "PreprodRewriteLambdaName";
+        final String preprodLambdaVersion = "000011";
+        final String preprodStackName = "preprod-WhiteboardIhsanIoCdkStack";
+        final String preprodDomainName = "whiteboard-preprod.ihsan.io";
+        final Integer preprodLambdaProvisionedConcurrency = 0;
+
         final RewriteLambdaEdgeStack preprodRewriteLambdaEdgeStack = new RewriteLambdaEdgeStack(
                 app,
-                rewriteLambdaStackName,
-                rewriteLambdaOutputName,
+                preprodRewriteLambdaStackName,
+                preprodRewriteLambdaOutputName,
+                preprodRewriteLambdaVersionNumber,
                 StackProps.builder()
                         .env(preprodLambdaEdge)
                         .description("Whiteboard pre-prod Lambda@Edge stack")
                         .build());
-        // --------------------------------------------------------------------
-
-        final String preprodLambdaVersion = "000011";
-        new CdkStack(app, "preprod-WhiteboardIhsanIoCdkStack",
-                "whiteboard-preprod.ihsan.io",
-                rewriteLambdaStackName,
-                rewriteLambdaOutputName,
+        new CdkStack(app, preprodStackName,
+                preprodShortStackName,
+                preprodDomainName,
+                preprodRewriteLambdaStackName,
+                preprodRewriteLambdaOutputName,
                 rewriteLambdaCodeHash,
                 preprodLambdaVersion,
+                preprodLambdaProvisionedConcurrency,
                 StackProps.builder()
                         .env(preprod)
                         .description("Whiteboard pre-prod environment")
                         .build()).addDependency(preprodRewriteLambdaEdgeStack);
+        // --------------------------------------------------------------------
 
-//        new CdkStack(app, "prod-WhiteboardAsimIhsanIoCdkStack",
-//                "whiteboard.ihsan.io",
-//                StackProps.builder()
-//                        .env(prod)
-//                        .description("Whiteboard prod environment")
-//                        .build());
+        // --------------------------------------------------------------------
+        //  Prod.
+        //
+        //  Lambda@Edge functions must be in us-east-1. Hence separate stack.
+        // --------------------------------------------------------------------
+        final String prodRewriteLambdaStackName = "prod-WhiteboardIhsanIoRewriteLambdaCdkStack";
+        final String prodRewriteLambdaVersionNumber = "000001";
+        final String prodRewriteLambdaOutputName = "ProdRewriteLambdaName";
+        final String prodLambdaVersion = "000001";
+        final String prodStackName = "prod-WhiteboardIhsanIoCdkStack";
+        final String prodShortStackName = "prod";
+        final String prodDomainName = "whiteboard.ihsan.io";
+        final Integer prodLambdaProvisionedConcurrency = 2;
+
+        final RewriteLambdaEdgeStack prodRewriteLambdaEdgeStack = new RewriteLambdaEdgeStack(
+                app,
+                prodRewriteLambdaStackName,
+                prodRewriteLambdaOutputName,
+                prodRewriteLambdaVersionNumber,
+                StackProps.builder()
+                        .env(prodLambdaEdge)
+                        .description("Whiteboard prod Lambda@Edge stack")
+                        .build());
+        new CdkStack(app, prodStackName,
+                prodShortStackName,
+                prodDomainName,
+                prodRewriteLambdaStackName,
+                prodRewriteLambdaOutputName,
+                rewriteLambdaCodeHash,
+                prodLambdaVersion,
+                prodLambdaProvisionedConcurrency,
+                StackProps.builder()
+                        .env(prod)
+                        .description("Whiteboard prod environment")
+                        .build()).addDependency(prodRewriteLambdaEdgeStack);
+        // --------------------------------------------------------------------
 
         app.synth();
     }
