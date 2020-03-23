@@ -45,7 +45,7 @@
     // - Replaced the pako distributed with the latest non-minified version.
     // - Skipped the URI encoding and zapGremlins parts.
     function compress(text) {
-        var tmp = pako.deflate(text, {to: 'string'});
+        var tmp = pako.deflate(text, {level: 9, memlevel: 9, to: 'string'});
         tmp = Base64.encode(tmp, true);
         return tmp;
     }
@@ -296,6 +296,10 @@
         window.onfocus = function() {
             console.log("gained focus, ensuring refresh timer is running");
             focused = true;
+            if (refreshContentTimerId > 0) {
+                clearInterval(refreshContentTimerId);
+                refreshContentTimerId = -1;
+            }
             if (refreshContentTimerId === -1) {
                 refreshContentTimerId = setInterval(refreshContent, refreshInterval);
             }

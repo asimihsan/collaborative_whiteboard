@@ -81,6 +81,7 @@ public class CdkStack extends Stack {
                     final String rewriteLambdaStackName,
                     final String rewriteLambdaOutputName,
                     final String rewriteLambdaCodeHash,
+                    final String lambdaVersion,
                     final StackProps props) {
         super(scope, id, props);
 
@@ -122,7 +123,7 @@ public class CdkStack extends Stack {
                 .timeout(Duration.seconds(10))
                 .environment(lambdaEnvironment)
                 .build();
-        final IVersion whiteboardLambdaVersion = Version.Builder.create(this, "WhiteboardLambdaVersion_000006_")
+        final IVersion whiteboardLambdaVersion = Version.Builder.create(this, String.format("WhiteboardLambdaVersion_%s_", lambdaVersion))
                 .lambda(whiteboardLambda)
                 .provisionedConcurrentExecutions(0)
                 .build();

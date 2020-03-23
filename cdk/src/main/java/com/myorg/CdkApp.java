@@ -50,11 +50,13 @@ public class CdkApp {
                         .build());
         // --------------------------------------------------------------------
 
+        final String preprodLambdaVersion = "000009";
         new CdkStack(app, "preprod-WhiteboardIhsanIoCdkStack",
                 "whiteboard-preprod.ihsan.io",
                 rewriteLambdaStackName,
                 rewriteLambdaOutputName,
                 rewriteLambdaCodeHash,
+                preprodLambdaVersion,
                 StackProps.builder()
                         .env(preprod)
                         .description("Whiteboard pre-prod environment")

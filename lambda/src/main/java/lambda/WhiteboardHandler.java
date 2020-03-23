@@ -8,7 +8,9 @@ import com.fasterxml.jackson.databind.ObjectReader;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.google.common.base.Preconditions;
 import lambda.dynamodb.Whiteboard;
+import logic.MxGraphDocumentMerger;
 import lombok.SneakyThrows;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -39,6 +41,17 @@ public class WhiteboardHandler extends BaseHandler {
     private static final ObjectWriter setWhiteboardResponseWriter =
             objectMapper.writerFor(setWhiteboardResponseTypeReference);
 
+    private final MxGraphDocumentMerger merger;
+    private final Encoding encoding;
+
+    public WhiteboardHandler() {
+        this(new MxGraphDocumentMerger(), new Encoding());
+    }
+
+    public WhiteboardHandler(final MxGraphDocumentMerger merger, final Encoding encoding) {
+        this.merger = merger;
+        this.encoding = encoding;
+    }
 
     @SneakyThrows({JsonProcessingException.class, IOException.class})
     @Override
@@ -78,8 +91,19 @@ public class WhiteboardHandler extends BaseHandler {
     private SetWhiteboardResponse handleSetWhiteboard(final SetWhiteboardRequest request) {
         Whiteboard whiteboard = dynamoDbTable.load(request.getIdentifier());
         Preconditions.checkState(whiteboard != null);
-        whiteboard.setContent(request.getContent());
-        dynamoDbTable.saveIfExists(whiteboard);
+
+        final String mergedContent;
+        if (StringUtils.isBlank(whiteboard.getContent())) {
+            mergedContent = request.getContent();
+        } else {
+            final String decodedOldContent = encoding.decode(whiteboard.getContent());
+            final String decodedNewContent = encoding.decode(request.getContent());
+            final String decodedMergedContent = merger.merge(decodedOldContent, decodedNewContent);
+            mergedContent = encoding.encode(decodedMergedContent);
+        }
+
+        whiteboard.setContent(mergedContent);
+        dynamoDbTable.save(whiteboard);
         log.info("whiteboard version {}", whiteboard.getVersion());
 
         return new SetWhiteboardResponse(

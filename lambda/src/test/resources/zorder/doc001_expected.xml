@@ -1,0 +1,21 @@
+<mxGraphModel>
+    <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell edge="1" id="5" parent="1" source="2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="3">
+                        
+            <mxGeometry as="geometry" relative="1"/>
+                    
+        </mxCell>
+        <mxCell id="2" parent="1" style="whiteSpace=wrap;html=1;aspect=fixed;" value="" vertex="1">
+                        
+            <mxGeometry as="geometry" height="80" width="80" x="340" y="220"/>
+                    
+        </mxCell>
+        <mxCell id="3" parent="1" style="whiteSpace=wrap;html=1;aspect=fixed;" value="" vertex="1">
+                        
+            <mxGeometry as="geometry" height="80" width="80" x="295" y="400"/>
+                    
+        </mxCell>
+    </root>
+</mxGraphModel>
