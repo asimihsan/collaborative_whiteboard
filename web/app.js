@@ -95,20 +95,19 @@
                     PNotify.error({
                        text: "Failed to update whiteboard on server!"
                     });
-                    editor.graph.setEnabled(true);
                     return;
                 }
                 response.json().then(function(data) {
                     if (data === null) {
                         console.log("data unexpectedly null, ignoring");
-                        editor.graph.setEnabled(true);
                         return;
                     }
                     console.log(data); // JSON data parsed by `response.json()` call
-                    if (isContentNewCallback(data)) {
-                        updateLocalContent(data["content"], editor);
-                        editor.graph.setEnabled(true);
-                    }
+                    lastGetContent = data["content"];
+                    lastGetVersion = data["version"];
+                    // if (isContentNewCallback(data)) {
+                    //     updateLocalContent(data["content"], editor);
+                    // }
                 });
 
             });
@@ -130,21 +129,17 @@
                     PNotify.error({
                         text: "Failed to get whiteboard from server!"
                     });
-                    editor.graph.setEnabled(true);
                     return;
                 }
 
                 response.json().then(function(data) {
                     if (data === null) {
                         console.log("data unexpectedly null, ignoring");
-                        editor.graph.setEnabled(true);
                         return;
                     }
                     console.log(data); // JSON data parsed by `response.json()` call
-                    editor.graph.setEnabled(true);
                     if (isContentNewCallback(data)) {
                         updateLocalContent(data["content"], editor);
-                        editor.graph.setEnabled(true);
                     }
                 });
             });
@@ -155,6 +150,7 @@
             console.log("content is empty, not setting it");
             return;
         }
+        console.log("updating local content");
         editor.undoManager.clear();
         var xml = mxUtils.parseXml(decompress(content));
         var dec = new mxCodec(xml.documentElement.ownerDocument);
@@ -220,7 +216,6 @@
         // Chromeless true is good for printing out or exporting.
         var chromeless = false;
         var editor = new Editor(chromeless, themes);
-        editor.graph.setEnabled(false);
         editor.graph.model.prefix = clientId + "_";
 
         new EditorUi(editor);
@@ -238,7 +233,6 @@
                 return;
             }
             console.log('change');
-            editor.graph.setEnabled(false);
 
             var enc = new mxCodec();
             var node = enc.encode(editor.graph.getModel());
