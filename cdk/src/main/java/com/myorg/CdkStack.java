@@ -20,6 +20,7 @@ import software.amazon.awscdk.services.apigateway.LambdaIntegration;
 import software.amazon.awscdk.services.apigateway.LambdaIntegrationOptions;
 import software.amazon.awscdk.services.apigateway.Resource;
 import software.amazon.awscdk.services.apigateway.RestApi;
+import software.amazon.awscdk.services.apigateway.StageOptions;
 import software.amazon.awscdk.services.certificatemanager.DnsValidatedCertificate;
 import software.amazon.awscdk.services.certificatemanager.ICertificate;
 import software.amazon.awscdk.services.cloudformation.CustomResource;
@@ -52,6 +53,7 @@ import software.amazon.awscdk.services.lambda.IAlias;
 import software.amazon.awscdk.services.lambda.IVersion;
 import software.amazon.awscdk.services.lambda.Runtime;
 import software.amazon.awscdk.services.lambda.SingletonFunction;
+import software.amazon.awscdk.services.lambda.Tracing;
 import software.amazon.awscdk.services.lambda.Version;
 import software.amazon.awscdk.services.logs.RetentionDays;
 import software.amazon.awscdk.services.route53.ARecord;
@@ -126,6 +128,7 @@ public class CdkStack extends Stack {
                 .timeout(Duration.seconds(10))
                 .environment(lambdaEnvironment)
                 .logRetention(RetentionDays.ONE_WEEK)
+                .tracing(Tracing.ACTIVE)
                 .build();
         final IVersion whiteboardLambdaVersion = Version.Builder.create(this, String.format("WhiteboardLambdaVersion_%s_", lambdaVersion))
                 .lambda(whiteboardLambda)
@@ -189,6 +192,9 @@ public class CdkStack extends Stack {
                         .allowHeaders(Cors.DEFAULT_HEADERS)
                         .allowMethods(ImmutableList.of("POST", "OPTIONS"))
                         .maxAge(Duration.seconds(86400))
+                        .build())
+                .deployOptions(StageOptions.builder()
+                        .tracingEnabled(true)
                         .build())
                 .build();
         final Resource rootResource = api.getRoot().addResource("api");
