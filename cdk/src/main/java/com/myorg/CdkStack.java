@@ -66,6 +66,7 @@ import software.amazon.awscdk.services.s3.Bucket;
 import software.amazon.awscdk.services.s3.BucketEncryption;
 import software.amazon.awscdk.services.s3.BucketProps;
 import software.amazon.awscdk.services.s3.deployment.BucketDeployment;
+import software.amazon.awscdk.services.s3.deployment.Expires;
 import software.amazon.awscdk.services.s3.deployment.ISource;
 import software.amazon.awscdk.services.s3.deployment.Source;
 
@@ -292,11 +293,16 @@ public class CdkStack extends Stack {
                                         .allowedMethods(CloudFrontAllowedMethods.GET_HEAD_OPTIONS)
                                         .build(),
 
-                                // Static files
+                                // Static files. Note that CDK's BucketDeployment is configured to invalidate **all**
+                                // files on deployment (very expensive!). Hence we can allow CloudFront to cache files
+                                // for a long time.
                                 Behavior.builder()
                                         .isDefaultBehavior(true)
                                         .compress(true)
                                         .allowedMethods(CloudFrontAllowedMethods.GET_HEAD_OPTIONS)
+                                        .minTtl(Duration.days(1))
+                                        .defaultTtl(Duration.days(1))
+                                        .maxTtl(Duration.days(1))
                                         .build()))
                         .build()
 
@@ -341,6 +347,7 @@ public class CdkStack extends Stack {
                 .destinationBucket(bucket)
                 .distribution(distribution)
                 .memoryLimit(1024)
+                .expires(Expires.after(Duration.days(1)))
                 .build();
         // --------------------------------------------------------------------
 
