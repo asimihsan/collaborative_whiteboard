@@ -53,6 +53,7 @@ import software.amazon.awscdk.services.lambda.IVersion;
 import software.amazon.awscdk.services.lambda.Runtime;
 import software.amazon.awscdk.services.lambda.SingletonFunction;
 import software.amazon.awscdk.services.lambda.Version;
+import software.amazon.awscdk.services.logs.RetentionDays;
 import software.amazon.awscdk.services.route53.ARecord;
 import software.amazon.awscdk.services.route53.HostedZone;
 import software.amazon.awscdk.services.route53.HostedZoneProviderProps;
@@ -124,6 +125,7 @@ public class CdkStack extends Stack {
                 .memorySize(512)
                 .timeout(Duration.seconds(10))
                 .environment(lambdaEnvironment)
+                .logRetention(RetentionDays.ONE_WEEK)
                 .build();
         final IVersion whiteboardLambdaVersion = Version.Builder.create(this, String.format("WhiteboardLambdaVersion_%s_", lambdaVersion))
                 .lambda(whiteboardLambda)

@@ -48,9 +48,9 @@ public class CdkApp {
         // --------------------------------------------------------------------
         final String preprodRewriteLambdaStackName = "preprod-WhiteboardIhsanIoRewriteLambdaCdkStack";
         final String preprodShortStackName = "preprod";
-        final String preprodRewriteLambdaVersionNumber = "000010";
+        final String preprodRewriteLambdaVersionNumber = "000011";
         final String preprodRewriteLambdaOutputName = "PreprodRewriteLambdaName";
-        final String preprodLambdaVersion = "000011";
+        final String preprodLambdaVersion = "000012";
         final String preprodStackName = "preprod-WhiteboardIhsanIoCdkStack";
         final String preprodDomainName = "whiteboard-preprod.ihsan.io";
         final Integer preprodLambdaProvisionedConcurrency = 0;
@@ -84,9 +84,9 @@ public class CdkApp {
         //  Lambda@Edge functions must be in us-east-1. Hence separate stack.
         // --------------------------------------------------------------------
         final String prodRewriteLambdaStackName = "prod-WhiteboardIhsanIoRewriteLambdaCdkStack";
-        final String prodRewriteLambdaVersionNumber = "000002";
+        final String prodRewriteLambdaVersionNumber = "000003";
         final String prodRewriteLambdaOutputName = "ProdRewriteLambdaName";
-        final String prodLambdaVersion = "000001";
+        final String prodLambdaVersion = "000002";
         final String prodStackName = "prod-WhiteboardIhsanIoCdkStack";
         final String prodShortStackName = "prod";
         final String prodDomainName = "whiteboard.ihsan.io";

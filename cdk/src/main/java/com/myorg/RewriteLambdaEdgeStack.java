@@ -18,6 +18,7 @@ import software.amazon.awscdk.services.lambda.Function;
 import software.amazon.awscdk.services.lambda.IVersion;
 import software.amazon.awscdk.services.lambda.Runtime;
 import software.amazon.awscdk.services.lambda.Version;
+import software.amazon.awscdk.services.logs.RetentionDays;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -54,6 +55,7 @@ public class RewriteLambdaEdgeStack extends Stack {
                                         "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole")))
                         .build()
                 )
+                .logRetention(RetentionDays.ONE_WEEK)
                 .build();
         final IVersion rewriteLambdaVersion = Version.Builder.create(this, String.format("RewriteLambdaEdgeVersion_%s_", rewriteLambdaVersionNumber))
                 .lambda(rewriteLambda)
