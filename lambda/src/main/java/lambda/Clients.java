@@ -12,10 +12,14 @@ import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBMapperConfig.Pagin
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBMapperConfig.SaveBehavior;
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBTableMapper;
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBTypeConverterFactory;
+import com.amazonaws.xray.AWSXRay;
+import com.amazonaws.xray.handlers.TracingHandler;
 import lambda.dynamodb.Whiteboard;
 
 public class Clients {
-    private static final AmazonDynamoDB dynamoDb = AmazonDynamoDBClientBuilder.defaultClient();
+    private static final AmazonDynamoDB dynamoDb = AmazonDynamoDBClientBuilder.standard()
+            .withRequestHandlers(new TracingHandler(AWSXRay.getGlobalRecorder()))
+            .build();
     private static final String WHITEBOARD_TABLE_NAME = System.getenv("WHITEBOARD_TABLE_NAME");
     private static final DynamoDBTableMapper<Whiteboard, String, ?> whiteboardDynamoDbMapper
             = Clients.createWhiteboardDynamoDbMapper();
