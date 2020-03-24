@@ -127,7 +127,7 @@ public class CdkStack extends Stack {
                 .build();
         final IVersion whiteboardLambdaVersion = Version.Builder.create(this, String.format("WhiteboardLambdaVersion_%s_", lambdaVersion))
                 .lambda(whiteboardLambda)
-                .provisionedConcurrentExecutions(0)
+                .provisionedConcurrentExecutions(lambdaProvisionedConcurrency)
                 .build();
         final IAlias whiteboardLambdaLatest = Alias.Builder.create(this, "WhiteboardLambdaAlias")
                 .version(whiteboardLambdaVersion)
