@@ -19,8 +19,8 @@ exports.handler = (event, context, callback) => {
     const request = event.Records[0].cf.request;
     const headers = request.headers;
 
-    // If this is the root, redirect to a random new whiteboard ID.
-    if (request.uri === "/") {
+    // If this is the root or a user went to /w/, redirect to a random new whiteboard ID.
+    if (request.uri === "/" || request.uri === "/w/" || request.uri === "/w") {
         const newUri = "/w/" + guid();
         console.log("re-writing root request with new whiteboard: " + newUri);
         const response = {
