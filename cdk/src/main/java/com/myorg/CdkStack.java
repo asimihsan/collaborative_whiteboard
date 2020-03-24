@@ -248,8 +248,20 @@ public class CdkStack extends Stack {
                                 .s3BucketSource(bucket)
                                 .build())
                         .behaviors(ImmutableList.of(
+                                // Just /w regenerates a new whiteboard.
+                                Behavior.builder()
+                                        .pathPattern("/w")
+                                        .compress(true)
+                                        .lambdaFunctionAssociations(Collections.singletonList(LambdaFunctionAssociation.builder()
+                                                .eventType(LambdaEdgeEventType.VIEWER_REQUEST)
+                                                .lambdaFunction(rewriteLambdaVersion)
+                                                .build()))
+                                        .allowedMethods(CloudFrontAllowedMethods.GET_HEAD_OPTIONS)
+                                        .build(),
+
                                 // When a user browses to e.g. /w/12345, we want to just load the same static assets as
                                 // from root but keep the path URI for the JavaScript to parse out the whiteboard identifier.
+                                // This also includes the /w/ endpoint, where we generate a new whiteboard.
                                 Behavior.builder()
                                         .pathPattern("/w/*")
                                         .compress(true)
