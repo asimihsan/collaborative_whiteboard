@@ -1,6 +1,5 @@
 package lambda;
 
-import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBTableMapper;
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestStreamHandler;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -11,13 +10,11 @@ import com.fasterxml.jackson.databind.ObjectWriter;
 import com.google.common.collect.ImmutableMap;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import exception.UnrecognizedApiResourceException;
-import lambda.dynamodb.Whiteboard;
 import lombok.SneakyThrows;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.InputStream;

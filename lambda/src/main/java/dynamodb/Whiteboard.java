@@ -1,15 +1,16 @@
-package lambda.dynamodb;
+package dynamodb;
 
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBAttribute;
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBHashKey;
+import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBRangeKey;
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBTable;
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBVersionAttribute;
 
 @DynamoDBTable(tableName = "overrideMe")
 public class Whiteboard {
     private String identifier;
-    private String content;
     private Long version;
+    private String content;
 
     @DynamoDBHashKey
     public String getIdentifier() {
@@ -20,6 +21,15 @@ public class Whiteboard {
         this.identifier = identifier;
     }
 
+    @DynamoDBRangeKey
+    public Long getVersion() {
+        return version;
+    }
+
+    public void setVersion(Long version) {
+        this.version = version;
+    }
+
     @DynamoDBAttribute
     public String getContent() {
         return content;
@@ -27,14 +37,5 @@ public class Whiteboard {
 
     public void setContent(String content) {
         this.content = content;
-    }
-
-    @DynamoDBVersionAttribute
-    public Long getVersion() {
-        return version;
-    }
-
-    public void setVersion(Long version) {
-        this.version = version;
     }
 }

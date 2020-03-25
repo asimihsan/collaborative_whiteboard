@@ -116,6 +116,10 @@ public class CdkStack extends Stack {
                         .name("identifier")
                         .type(AttributeType.STRING)
                         .build())
+                .sortKey(Attribute.builder()
+                        .name("version")
+                        .type(AttributeType.NUMBER)
+                        .build())
                 .billingMode(BillingMode.PAY_PER_REQUEST)
                 .build();
         final Map<String, String> lambdaEnvironment = new HashMap<>();
@@ -125,7 +129,7 @@ public class CdkStack extends Stack {
                 .runtime(Runtime.JAVA_11)    // execution environment
                 .code(Code.fromAsset("../lambda/build/distributions/collaborative_whiteboard.zip"))  // code loaded from the "lambda" directory
                 .handler("lambda.WhiteboardHandler::handleRequest")
-                .memorySize(512)
+                .memorySize(1024)
                 .timeout(Duration.seconds(10))
                 .environment(lambdaEnvironment)
                 .logRetention(RetentionDays.ONE_WEEK)
@@ -300,9 +304,9 @@ public class CdkStack extends Stack {
                                         .isDefaultBehavior(true)
                                         .compress(true)
                                         .allowedMethods(CloudFrontAllowedMethods.GET_HEAD_OPTIONS)
-                                        .minTtl(Duration.days(1))
-                                        .defaultTtl(Duration.days(1))
-                                        .maxTtl(Duration.days(1))
+                                        .minTtl(Duration.hours(8))
+                                        .defaultTtl(Duration.hours(8))
+                                        .maxTtl(Duration.hours(8))
                                         .build()))
                         .build()
 
@@ -347,7 +351,7 @@ public class CdkStack extends Stack {
                 .destinationBucket(bucket)
                 .distribution(distribution)
                 .memoryLimit(1024)
-                .expires(Expires.after(Duration.days(1)))
+                .expires(Expires.after(Duration.hours(8)))
                 .build();
         // --------------------------------------------------------------------
 

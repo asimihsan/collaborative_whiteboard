@@ -7,7 +7,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectReader;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.google.common.base.Preconditions;
-import lambda.dynamodb.Whiteboard;
+import dynamodb.Whiteboard;
+import dynamodb.WhiteboardDao;
 import logic.MxGraphDocumentMerger;
 import lombok.SneakyThrows;
 import org.apache.commons.lang3.StringUtils;
@@ -15,10 +16,13 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
+import java.util.Objects;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 public class WhiteboardHandler extends BaseHandler {
     private static final Logger log = LogManager.getLogger(WhiteboardHandler.class);
-    private static final DynamoDBTableMapper<Whiteboard, String, ?> dynamoDbTable =
+    private static final DynamoDBTableMapper<Whiteboard, String, Long> dynamoDbTable =
             Clients.getWhiteboardDynamoDbMapper();
 
     private static final ObjectMapper objectMapper = new ObjectMapper();
@@ -41,16 +45,20 @@ public class WhiteboardHandler extends BaseHandler {
     private static final ObjectWriter setWhiteboardResponseWriter =
             objectMapper.writerFor(setWhiteboardResponseTypeReference);
 
+    private final WhiteboardDao whiteboardDao;
     private final MxGraphDocumentMerger merger;
     private final Encoding encoding;
 
     public WhiteboardHandler() {
-        this(new MxGraphDocumentMerger(), new Encoding());
+        this(new WhiteboardDao(dynamoDbTable), new MxGraphDocumentMerger(), new Encoding());
     }
 
-    public WhiteboardHandler(final MxGraphDocumentMerger merger, final Encoding encoding) {
-        this.merger = merger;
-        this.encoding = encoding;
+    public WhiteboardHandler(final WhiteboardDao whiteboardDao,
+                             final MxGraphDocumentMerger merger,
+                             final Encoding encoding) {
+        this.whiteboardDao = checkNotNull(whiteboardDao);
+        this.merger = checkNotNull(merger);
+        this.encoding = checkNotNull(encoding);
     }
 
     @SneakyThrows({JsonProcessingException.class, IOException.class})
@@ -71,44 +79,73 @@ public class WhiteboardHandler extends BaseHandler {
     }
 
     private GetWhiteboardResponse handleGetWhiteboard(final GetWhiteboardRequest request) {
-        Whiteboard whiteboard = dynamoDbTable.load(request.getIdentifier());
-        if (whiteboard == null) {
+        log.info("handleGetWhiteboard request: {}", request);
+        final Whiteboard newestWhiteboard = whiteboardDao.getNewestWhiteboard(request.getIdentifier());
+        final Whiteboard whiteboardResult;
+        if (newestWhiteboard == null) {
             log.info("Whiteboard does not exist");
             final Whiteboard newWhiteboard = new Whiteboard();
             newWhiteboard.setIdentifier(request.getIdentifier());
+            newWhiteboard.setVersion(1L);
             newWhiteboard.setContent("");
-            dynamoDbTable.saveIfNotExists(newWhiteboard);
-            whiteboard = newWhiteboard;
+            whiteboardDao.saveCompletelyNewWhiteboard(newWhiteboard);
+            whiteboardResult = newWhiteboard;
+        } else {
+            whiteboardResult = newestWhiteboard;
         }
-        log.info("whiteboard version {}", whiteboard.getVersion());
+
+        log.info("whiteboard identifier {} version {}",
+                whiteboardResult.getIdentifier(), whiteboardResult.getVersion());
 
         return new GetWhiteboardResponse(
-                whiteboard.getIdentifier(),
-                whiteboard.getContent(),
-                whiteboard.getVersion());
+                whiteboardResult.getIdentifier(),
+                whiteboardResult.getContent(),
+                whiteboardResult.getVersion());
     }
 
     private SetWhiteboardResponse handleSetWhiteboard(final SetWhiteboardRequest request) {
-        Whiteboard whiteboard = dynamoDbTable.load(request.getIdentifier());
-        Preconditions.checkState(whiteboard != null);
+        log.info("handleSetWhiteboard identifier: {}", request.getIdentifier());
+
+        final Whiteboard newestWhiteboard = whiteboardDao.getNewestWhiteboard(request.getIdentifier());
+        Preconditions.checkState(newestWhiteboard != null);
+        final Long existingNewestWhiteboardVersion = newestWhiteboard.getVersion();
+
+        final Whiteboard sourceWhiteboard = whiteboardDao.getWhiteboardAtVersion(
+                request.getIdentifier(), request.getSourceWhiteboardVersion());
+        Preconditions.checkState(sourceWhiteboard != null);
+        log.info("handleSetWhiteboard newest whiteboard version {}, source whiteboard version {}",
+                newestWhiteboard.getVersion(), sourceWhiteboard.getVersion());
 
         final String mergedContent;
-        if (StringUtils.isBlank(whiteboard.getContent())) {
+        if (Objects.equals(sourceWhiteboard.getVersion(), newestWhiteboard.getVersion())) {
+            // If the source whiteboard we've used is still the newest whiteboard, we've won and don't need to do any
+            // merging. We get to clobber the whiteboard.
+            log.info("handleSetWhiteboard source whiteboard is already newest, we win and can clobber");
             mergedContent = request.getContent();
         } else {
-            final String decodedOldContent = encoding.decode(whiteboard.getContent());
+            // The source whiteboard we used is no longer the newest version. Someone else made edits while this request
+            // was in progress. If we clobber we will upset them, despite our write being newer. Let's try merging and
+            // conflict resolution!
+            log.info("handleSetWhiteboard source whiteboard is no longer newest whiteboard, requires merging");
+            final String decodedCommonAncestor = encoding.decode(sourceWhiteboard.getContent());
+            final String decodedOldContent = encoding.decode(newestWhiteboard.getContent());
             final String decodedNewContent = encoding.decode(request.getContent());
-            final String decodedMergedContent = merger.merge(decodedOldContent, decodedNewContent);
+            final String decodedMergedContent = merger.merge(
+                    decodedCommonAncestor, decodedOldContent, decodedNewContent);
             mergedContent = encoding.encode(decodedMergedContent);
         }
 
-        whiteboard.setContent(mergedContent);
-        dynamoDbTable.save(whiteboard);
-        log.info("whiteboard version {}", whiteboard.getVersion());
+        newestWhiteboard.setContent(mergedContent);
+        newestWhiteboard.setVersion(newestWhiteboard.getVersion() + 1);
+        whiteboardDao.saveNewWhiteboardVersion(newestWhiteboard);
+        log.info("whiteboard version {}", newestWhiteboard.getVersion());
 
         return new SetWhiteboardResponse(
-                whiteboard.getIdentifier(),
-                whiteboard.getContent(),
-                whiteboard.getVersion());
+                newestWhiteboard.getIdentifier(),
+                newestWhiteboard.getContent(),
+                request.getSourceWhiteboardVersion(), /*requestSourceWhiteboardVersion*/
+                existingNewestWhiteboardVersion, /*existingNewestWhiteboardVersion*/
+                newestWhiteboard.getVersion() /*currentNewestWhiteboardVersion*/
+        );
     }
 }

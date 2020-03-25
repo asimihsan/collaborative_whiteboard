@@ -50,7 +50,7 @@ public class CdkApp {
         final String preprodShortStackName = "preprod";
         final String preprodRewriteLambdaVersionNumber = "000011";
         final String preprodRewriteLambdaOutputName = "PreprodRewriteLambdaName";
-        final String preprodLambdaVersion = "000013";
+        final String preprodLambdaVersion = "000018";
         final String preprodStackName = "preprod-WhiteboardIhsanIoCdkStack";
         final String preprodDomainName = "whiteboard-preprod.ihsan.io";
         final Integer preprodLambdaProvisionedConcurrency = 0;

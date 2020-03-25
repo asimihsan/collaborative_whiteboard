@@ -79,9 +79,11 @@
         return response;
     }
 
-    function setContentToRemote(identifier, content, editor, onResponseCallback, isContentNewCallback) {
+    function setContentToRemote(identifier, sourceVersion, content, editor, onResponseCallback, isContentNewCallback) {
         const data = {
+            "apiVersion": 1,
             "identifier": identifier,
+            "sourceWhiteboardVersion": sourceVersion,
             "content": content
         };
         postData(endpoint + '/api/set', data)
@@ -103,11 +105,9 @@
                         return;
                     }
                     console.log(data); // JSON data parsed by `response.json()` call
-                    lastGetContent = data["content"];
-                    lastGetVersion = data["version"];
-                    // if (isContentNewCallback(data)) {
-                    //     updateLocalContent(data["content"], editor);
-                    // }
+                    if (isContentNewCallback(data)) {
+                        updateLocalContent(data["content"], editor);
+                    }
                 });
 
             });
@@ -115,6 +115,7 @@
 
     function getContentFromRemote(identifier, editor, onResponseCallback, isContentNewCallback) {
         const data = {
+            "apiVersion": 1,
             "identifier": identifier,
         };
         postData(endpoint + '/api/get', data)
@@ -178,7 +179,7 @@
 
     var identifier = window.location.href.split("/").pop();
     if (local) {
-        identifier = 'abcdef';
+        identifier = 'abcdef2';
     }
 
     var lastGetVersion = -1;
@@ -225,34 +226,36 @@
         //	See: Graph.js line 3392
         //	See: mxGraphModel header comment
         // ------------------------------------------------------------
-        // editor.graph.model.addListener(mxEvent.CHANGE, mxUtils.bind(this, function (sender, event) {
-        editor.graph.model.addListener(mxEvent.CHANGE, mxUtils.bind(this, function () {
-            if (suppressNextChangeEvent) {
-                console.log('change, but suppressed');
-                suppressNextChangeEvent = false;
-                return;
-            }
-            console.log('change');
+         editor.graph.model.addListener(mxEvent.CHANGE, mxUtils.bind(this, function (sender, event) {
+             console.log(sender);
+             console.log(event);
+             if (suppressNextChangeEvent) {
+                 console.log('change, but suppressed');
+                 suppressNextChangeEvent = false;
+                 return;
+             }
+             console.log('change');
 
-            var enc = new mxCodec();
-            var node = enc.encode(editor.graph.getModel());
-            var xml = mxUtils.getPrettyXml(node);
-            var xmlCompressed = compress(xml);
-            setContentToRemote(identifier, xmlCompressed, editor,
-                function() {
-                    if (refreshContentTimerId === -1 && focused) {
-                        refreshContentTimerId = setInterval(refreshContent, refreshInterval);
-                    }
-                },
+             var enc = new mxCodec();
+             var node = enc.encode(editor.graph.getModel());
+             var xml = mxUtils.getPrettyXml(node);
+             var xmlCompressed = compress(xml);
+             var sourceVersion = lastGetVersion;
+             setContentToRemote(identifier, sourceVersion, xmlCompressed, editor,
+                 function() {
+                     if (refreshContentTimerId === -1 && focused) {
+                         refreshContentTimerId = setInterval(refreshContent, refreshInterval);
+                     }
+                 },
                 function(remoteData) {
-                if (remoteData["content"] !== lastGetContent) {
-                    lastGetVersion = remoteData["version"];
+                    var didWeUpdateLatestVersion =
+                        remoteData["requestSourceWhiteboardVersion"] === remoteData["existingNewestWhiteboardVersion"];
+                    lastGetVersion = remoteData["currentNewestWhiteboardVersion"];
                     lastGetContent = remoteData["content"];
                     suppressNextChangeEvent = true;
-                    return true;
+                    return !didWeUpdateLatestVersion;
                 }
-                return false;
-            });
+            );
 
             // var changes = event.getProperty('edit').changes;
             // console.log("changes");
@@ -273,8 +276,8 @@
                     }
                 },
                 function(remoteData) {
-                if (remoteData["content"] !== lastGetContent) {
-                    lastGetVersion = remoteData["version"];
+                if (remoteData["whiteboardVersion"] !== lastGetVersion) {
+                    lastGetVersion = remoteData["whiteboardVersion"];
                     lastGetContent = remoteData["content"];
                     return true;
                 }
