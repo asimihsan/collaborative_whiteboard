@@ -248,10 +248,12 @@
                      }
                  },
                 function(remoteData) {
+                    if (remoteData["currentNewestWhiteboardVersion"] > lastGetVersion) {
+                         lastGetVersion = remoteData["currentNewestWhiteboardVersion"];
+                         lastGetContent = remoteData["content"];
+                    }
                     var didWeUpdateLatestVersion =
                         remoteData["requestSourceWhiteboardVersion"] === remoteData["existingNewestWhiteboardVersion"];
-                    lastGetVersion = remoteData["currentNewestWhiteboardVersion"];
-                    lastGetContent = remoteData["content"];
                     return !didWeUpdateLatestVersion;
                 }
             );
