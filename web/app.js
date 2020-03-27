@@ -14,10 +14,9 @@
             storage.setItem(x, x);
             storage.removeItem(x);
             return true;
-        }
-        catch(e) {
+        } catch (e) {
             return e instanceof DOMException && (
-                // everything except Firefox
+                    // everything except Firefox
                 e.code === 22 ||
                 // Firefox
                 e.code === 1014 ||
@@ -37,6 +36,7 @@
                 .toString(16)
                 .substring(1);
         }
+
         return s4() + s4() + '-' + s4() + '-' + s4() + '-' +
             s4() + '-' + s4() + s4() + s4();
     }
@@ -95,11 +95,11 @@
                     console.log("set failed!");
                     console.log(response);
                     PNotify.error({
-                       text: "Failed to update whiteboard on server!"
+                        text: "Failed to update whiteboard on server!"
                     });
                     return;
                 }
-                response.json().then(function(data) {
+                response.json().then(function (data) {
                     if (data === null) {
                         console.log("data unexpectedly null, ignoring");
                         return;
@@ -133,7 +133,7 @@
                     return;
                 }
 
-                response.json().then(function(data) {
+                response.json().then(function (data) {
                     if (data === null) {
                         console.log("data unexpectedly null, ignoring");
                         return;
@@ -225,32 +225,32 @@
         //	See: Graph.js line 3392
         //	See: mxGraphModel header comment
         // ------------------------------------------------------------
-         editor.graph.model.addListener(mxEvent.CHANGE, mxUtils.bind(this, function (sender, event) {
-             console.log(sender);
-             console.log(event);
+        editor.graph.model.addListener(mxEvent.CHANGE, mxUtils.bind(this, function (sender, event) {
+            console.log(sender);
+            console.log(event);
 
-             var enc = new mxCodec();
-             var node = enc.encode(editor.graph.getModel());
-             var xml = mxUtils.getPrettyXml(node);
-             var xmlCompressed = compress(xml);
+            var enc = new mxCodec();
+            var node = enc.encode(editor.graph.getModel());
+            var xml = mxUtils.getPrettyXml(node);
+            var xmlCompressed = compress(xml);
 
-             if (xmlCompressed === lastGetContent) {
-                 console.log('change event but content is same');
-                 return;
-             }
-             console.log('change');
+            if (xmlCompressed === lastGetContent) {
+                console.log('change event but content is same');
+                return;
+            }
+            console.log('change');
 
-             var sourceVersion = lastGetVersion;
-             setContentToRemote(identifier, sourceVersion, xmlCompressed, editor,
-                 function() {
-                     if (refreshContentTimerId === -1 && focused) {
-                         refreshContentTimerId = setInterval(refreshContent, refreshInterval);
-                     }
-                 },
-                function(remoteData) {
+            var sourceVersion = lastGetVersion;
+            setContentToRemote(identifier, sourceVersion, xmlCompressed, editor,
+                function () {
+                    if (refreshContentTimerId === -1 && focused) {
+                        refreshContentTimerId = setInterval(refreshContent, refreshInterval);
+                    }
+                },
+                function (remoteData) {
                     if (remoteData["currentNewestWhiteboardVersion"] > lastGetVersion) {
-                         lastGetVersion = remoteData["currentNewestWhiteboardVersion"];
-                         lastGetContent = remoteData["content"];
+                        lastGetVersion = remoteData["currentNewestWhiteboardVersion"];
+                        lastGetContent = remoteData["content"];
                     }
                     var didWeUpdateLatestVersion =
                         remoteData["requestSourceWhiteboardVersion"] === remoteData["existingNewestWhiteboardVersion"];
@@ -262,6 +262,7 @@
             // console.log("changes");
             // console.log(changes);
         }));
+
         // ------------------------------------------------------------
 
         function refreshContent() {
@@ -271,19 +272,19 @@
                 return;
             }
             getContentFromRemote(identifier, editor,
-                function() {
+                function () {
                     if (refreshContentTimerId === -1 && focused) {
                         refreshContentTimerId = setInterval(refreshContent, refreshInterval);
                     }
                 },
-                function(remoteData) {
-                if (remoteData["whiteboardVersion"] > lastGetVersion) {
-                    lastGetVersion = remoteData["whiteboardVersion"];
-                    lastGetContent = remoteData["content"];
-                    return true;
-                }
-                return false;
-            });
+                function (remoteData) {
+                    if (remoteData["whiteboardVersion"] > lastGetVersion) {
+                        lastGetVersion = remoteData["whiteboardVersion"];
+                        lastGetContent = remoteData["content"];
+                        return true;
+                    }
+                    return false;
+                });
         }
 
         PNotify.info({
@@ -291,7 +292,7 @@
         });
         refreshContent();
 
-        window.onfocus = function() {
+        window.onfocus = function () {
             console.log("gained focus, ensuring refresh timer is running");
             focused = true;
             if (refreshContentTimerId > 0) {
@@ -303,7 +304,7 @@
             }
         };
 
-        window.onblur = function() {
+        window.onblur = function () {
             console.log("lost focus, ensuring refresh timer is halted");
             focused = false;
             if (refreshContentTimerId > 0) {
