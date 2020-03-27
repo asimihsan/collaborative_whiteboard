@@ -1,6 +1,7 @@
 package lambda;
 
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBTableMapper;
+import com.amazonaws.services.dynamodbv2.model.ConditionalCheckFailedException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -80,7 +81,8 @@ public class WhiteboardHandler extends BaseHandler {
 
     private GetWhiteboardResponse handleGetWhiteboard(final GetWhiteboardRequest request) {
         log.info("handleGetWhiteboard request: {}", request);
-        final Whiteboard newestWhiteboard = whiteboardDao.getNewestWhiteboard(request.getIdentifier());
+        final Whiteboard newestWhiteboard = whiteboardDao.getNewestWhiteboard(
+                request.getIdentifier(), false /*consistentRead*/);
         final Whiteboard whiteboardResult;
         if (newestWhiteboard == null) {
             log.info("Whiteboard does not exist");
@@ -104,9 +106,26 @@ public class WhiteboardHandler extends BaseHandler {
     }
 
     private SetWhiteboardResponse handleSetWhiteboard(final SetWhiteboardRequest request) {
-        log.info("handleSetWhiteboard identifier: {}", request.getIdentifier());
+        log.info("handleSetWhiteboard identifier: {}, sourceWhiteboardVersion: {}",
+                request.getIdentifier(), request.getSourceWhiteboardVersion());
 
-        final Whiteboard newestWhiteboard = whiteboardDao.getNewestWhiteboard(request.getIdentifier());
+        SetWhiteboardResponse whiteboardResponse;
+        try {
+            whiteboardResponse = handleSetWhiteboardInner(request, false /*consistentRead */);
+        } catch (final ConditionalCheckFailedException e) {
+            log.info("conditional check failed, will retry with consistent read. {}", e.getMessage());
+            whiteboardResponse = handleSetWhiteboardInner(request, true /*consistentRead */);
+        }
+        return whiteboardResponse;
+
+    }
+
+    private SetWhiteboardResponse handleSetWhiteboardInner(final SetWhiteboardRequest request,
+                                                           final boolean consistentRead) {
+        log.info("handleSetWhiteboardInner identifier: {}, sourceWhiteboardVersion: {}, consistentRead: {}",
+                request.getIdentifier(), request.getSourceWhiteboardVersion(), consistentRead);
+
+        final Whiteboard newestWhiteboard = whiteboardDao.getNewestWhiteboard(request.getIdentifier(), consistentRead);
         Preconditions.checkState(newestWhiteboard != null);
         final Long existingNewestWhiteboardVersion = newestWhiteboard.getVersion();
 
@@ -121,6 +140,11 @@ public class WhiteboardHandler extends BaseHandler {
             // If the source whiteboard we've used is still the newest whiteboard, we've won and don't need to do any
             // merging. We get to clobber the whiteboard.
             log.info("handleSetWhiteboard source whiteboard is already newest, we win and can clobber");
+            mergedContent = request.getContent();
+        } else if (StringUtils.isBlank(sourceWhiteboard.getContent())) {
+            // Source whiteboard is not the newest version but we can't get the source whiteboard content for some
+            // reason. This is unusual, but we are forced to clobber.
+            log.warn("handleSetWhiteboard source whiteboard is not newest but content is not available!");
             mergedContent = request.getContent();
         } else {
             // The source whiteboard we used is no longer the newest version. Someone else made edits while this request

@@ -184,7 +184,6 @@
 
     var lastGetVersion = -1;
     var lastGetContent = "";
-    var suppressNextChangeEvent = false;
     var focused = true;
     var refreshContentTimerId = -1;
     var refreshInterval = 1000;
@@ -229,17 +228,18 @@
          editor.graph.model.addListener(mxEvent.CHANGE, mxUtils.bind(this, function (sender, event) {
              console.log(sender);
              console.log(event);
-             if (suppressNextChangeEvent) {
-                 console.log('change, but suppressed');
-                 suppressNextChangeEvent = false;
-                 return;
-             }
-             console.log('change');
 
              var enc = new mxCodec();
              var node = enc.encode(editor.graph.getModel());
              var xml = mxUtils.getPrettyXml(node);
              var xmlCompressed = compress(xml);
+
+             if (xmlCompressed === lastGetContent) {
+                 console.log('change event but content is same');
+                 return;
+             }
+             console.log('change');
+
              var sourceVersion = lastGetVersion;
              setContentToRemote(identifier, sourceVersion, xmlCompressed, editor,
                  function() {
@@ -252,7 +252,6 @@
                         remoteData["requestSourceWhiteboardVersion"] === remoteData["existingNewestWhiteboardVersion"];
                     lastGetVersion = remoteData["currentNewestWhiteboardVersion"];
                     lastGetContent = remoteData["content"];
-                    suppressNextChangeEvent = true;
                     return !didWeUpdateLatestVersion;
                 }
             );
@@ -276,7 +275,7 @@
                     }
                 },
                 function(remoteData) {
-                if (remoteData["whiteboardVersion"] !== lastGetVersion) {
+                if (remoteData["whiteboardVersion"] > lastGetVersion) {
                     lastGetVersion = remoteData["whiteboardVersion"];
                     lastGetContent = remoteData["content"];
                     return true;

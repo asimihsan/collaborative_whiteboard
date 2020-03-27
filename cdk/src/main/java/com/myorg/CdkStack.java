@@ -304,9 +304,9 @@ public class CdkStack extends Stack {
                                         .isDefaultBehavior(true)
                                         .compress(true)
                                         .allowedMethods(CloudFrontAllowedMethods.GET_HEAD_OPTIONS)
-                                        .minTtl(Duration.hours(8))
-                                        .defaultTtl(Duration.hours(8))
-                                        .maxTtl(Duration.hours(8))
+                                        .minTtl(Duration.minutes(10))
+                                        .defaultTtl(Duration.minutes(10))
+                                        .maxTtl(Duration.minutes(10))
                                         .build()))
                         .build()
 
@@ -351,7 +351,7 @@ public class CdkStack extends Stack {
                 .destinationBucket(bucket)
                 .distribution(distribution)
                 .memoryLimit(1024)
-                .expires(Expires.after(Duration.hours(8)))
+                .expires(Expires.after(Duration.minutes(10)))
                 .build();
         // --------------------------------------------------------------------
 

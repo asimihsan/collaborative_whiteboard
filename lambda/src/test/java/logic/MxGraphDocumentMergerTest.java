@@ -26,6 +26,9 @@ class MxGraphDocumentMergerTest {
      * e.g. imagine the ancestor is "foo", old is "foo\nbar", and new is "foo\nbaz". Our desired result is
      * "foo\nbar\nbaz", but the order of bar and baz is arbitrary (this test assumes we prefer the old ordering).
      * Arbitrary ordering with mxGraph isn't so bad because this "just" affects the z-order.
+     *
+     * Note that this is a conflict; Git would ask a human to resolve this. Here we favor the old doc, but really
+     * don't care because this is just a z-order difference.
      */
     @Test
     public void testMergeWithTwoNewNodes() {

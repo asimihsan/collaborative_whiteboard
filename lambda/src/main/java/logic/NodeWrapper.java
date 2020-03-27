@@ -1,5 +1,6 @@
 package logic;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.hash.Hashing;
 import lombok.AllArgsConstructor;
 import org.w3c.dom.Node;
@@ -35,6 +36,14 @@ public class NodeWrapper {
                 .putString(getNodeId(), StandardCharsets.UTF_8)
                 .hash()
                 .asInt();
+    }
+
+    @Override
+    public String toString() {
+        return MoreObjects.toStringHelper(this)
+                .add("nodeName", node.getNodeName())
+                .add("nodeId", getNodeId())
+                .toString();
     }
 
     public Node getNode() {

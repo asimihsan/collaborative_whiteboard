@@ -1,12 +1,12 @@
-<mxGraphModel dx="1676" dy="742" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100">
+<mxGraphModel>
     <root>
         <mxCell id="0"/>
         <mxCell id="1" parent="0"/>
-        <mxCell id="da59c70f-a292-3dae-ef72-a01f3c25f0ee_1" value="" style="whiteSpace=wrap;html=1;aspect=fixed;" parent="1" vertex="1">
-            <mxGeometry x="210" y="370" width="80" height="80" as="geometry"/>
+        <mxCell id="da59c70f-a292-3dae-ef72-a01f3c25f0ee_1" parent="1" style="whiteSpace=wrap;html=1;aspect=fixed;" value="" vertex="1">
+            <mxGeometry as="geometry" height="80" width="80" x="210" y="370"/>
         </mxCell>
-        <mxCell id="b5f5536a-9f57-abfb-15ae-110ee5734f1e_1" value="" style="whiteSpace=wrap;html=1;aspect=fixed;" parent="1" vertex="1">
-            <mxGeometry x="100" y="40" width="80" height="80" as="geometry"/>
+        <mxCell id="b5f5536a-9f57-abfb-15ae-110ee5734f1e_1" parent="1" style="whiteSpace=wrap;html=1;aspect=fixed;" value="" vertex="1">
+            <mxGeometry as="geometry" height="80" width="80" x="100" y="40"/>
         </mxCell>
     </root>
 </mxGraphModel>
