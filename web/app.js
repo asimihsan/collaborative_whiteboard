@@ -1,3 +1,5 @@
+"use strict";
+
 (function () {
     var endpoint = '';
     var local = (location.hostname === "localhost" || location.hostname === "127.0.0.1" || location.hostname.startsWith("192.168"));
@@ -79,14 +81,14 @@
         return response;
     }
 
-    function setContentToRemote(identifier, sourceVersion, content, editor, onResponseCallback, isContentNewCallback) {
+    async function setContentToRemote(identifier, sourceVersion, content, editor, onResponseCallback, isContentNewCallback) {
         const data = {
             "apiVersion": 1,
             "identifier": identifier,
             "sourceWhiteboardVersion": sourceVersion,
             "content": content
         };
-        postData(endpoint + '/api/set', data)
+        return postData(endpoint + '/api/set', data)
             .then((response) => {
                 console.log("set response: " + response.ok);
                 onResponseCallback();
@@ -113,12 +115,12 @@
             });
     }
 
-    function getContentFromRemote(identifier, editor, onResponseCallback, isContentNewCallback) {
+    async function getContentFromRemote(identifier, editor, onResponseCallback, isContentNewCallback) {
         const data = {
             "apiVersion": 1,
             "identifier": identifier,
         };
-        postData(endpoint + '/api/get', data)
+        return postData(endpoint + '/api/get', data)
             .then((response) => {
                 console.log("get response: " + response.ok);
                 onResponseCallback();
@@ -151,12 +153,25 @@
             console.log("content is empty, not setting it");
             return;
         }
+        const selectionCellIds = editor.graph.getSelectionCells().map((cell) => cell.id);
+
         console.log("updating local content");
         editor.undoManager.clear();
         var xml = mxUtils.parseXml(decompress(content));
         var dec = new mxCodec(xml.documentElement.ownerDocument);
         dec.decode(xml.documentElement, editor.graph.getModel());
         editor.undoManager.clear();
+
+        let cellsToSelect = [];
+        for (const cellId in editor.graph.model.cells) {
+            if (editor.graph.model.cells.hasOwnProperty(cellId)) {
+                if (selectionCellIds.includes(cellId)) {
+                    const cell = editor.graph.model.cells[cellId];
+                    cellsToSelect.push(cell);
+                }
+            }
+        }
+        editor.graph.setSelectionCells(cellsToSelect);
     }
 
     var editorUiInit = EditorUi.prototype.init;
@@ -186,7 +201,8 @@
     var lastGetContent = "";
     var focused = true;
     var refreshContentTimerId = -1;
-    var refreshInterval = 1000;
+    var refreshInterval = 5000;
+    let editForTextInProgress = false;
 
     // clientId is a random UUID that we prefix MxGraph cells with. This is part of the conflict-resolution done
     // on the server side. Since we expect users to refresh the browser sometimes we cache this in session storage
@@ -221,14 +237,31 @@
 
         new EditorUi(editor);
 
-        // ------------------------------------------------------------
-        //	This is how to get the XML of the whole document given a change
-        //	See: Graph.js line 3392
-        //	See: mxGraphModel header comment
-        // ------------------------------------------------------------
-        editor.graph.model.addListener(mxEvent.NOTIFY, mxUtils.bind(this, function (sender, event) {
+        function onNotify(sender, event) {
+            console.log('onNotify entry');
             console.log(sender);
             console.log(event);
+
+            console.log('selection model');
+            console.log(editor.graph.selectionModel);
+
+            if (editForTextInProgress) {
+                console.log("edit for text in progress so suppressing NOTIFY");
+                return;
+            }
+
+            if (event !== null) {
+                try {
+                    var changes = event.getProperty('edit').changes;
+                    if (changes.length === 1 && changes[0].child !== undefined && changes[0].child.value === "Text") {
+                        console.log("suppressing set for Text");
+                        return;
+                    }
+                } catch (error) {
+
+                }
+            }
+
 
             var enc = new mxCodec();
             var node = enc.encode(editor.graph.getModel());
@@ -258,11 +291,26 @@
                     return !didWeUpdateLatestVersion;
                 }
             );
+        }
 
-            // var changes = event.getProperty('edit').changes;
-            // console.log("changes");
-            // console.log(changes);
+        editor.graph.addListener(mxEvent.EDITING_STARTED, mxUtils.bind(this, function (sender, event) {
+            console.log("EDITING_STARTED");
+            if (event.getProperty('cell').getValue() === "Text") {
+                console.log("editing started for text");
+                editForTextInProgress = true;
+            }
         }));
+
+        editor.graph.addListener(mxEvent.EDITING_STOPPED, mxUtils.bind(this, function (sender, event) {
+            console.log("EDITING_STOPPED");
+            if (editForTextInProgress) {
+                editForTextInProgress = false;
+                onNotify(sender, event);
+            }
+            editForTextInProgress = false;
+        }));
+
+        editor.graph.model.addListener(mxEvent.NOTIFY, mxUtils.bind(this, onNotify));
 
         // ------------------------------------------------------------
 
@@ -272,6 +320,11 @@
                 console.log("refreshContent no focus, skipping");
                 return;
             }
+            if (editForTextInProgress) {
+                console.log("edit in progress so suppressing refreshContent");
+                return;
+            }
+
             getContentFromRemote(identifier, editor,
                 function () {
                     if (refreshContentTimerId === -1 && focused) {
