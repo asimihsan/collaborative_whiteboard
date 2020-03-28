@@ -201,7 +201,7 @@
     var lastGetContent = "";
     var focused = true;
     var refreshContentTimerId = -1;
-    var refreshInterval = 5000;
+    var refreshInterval = 1000;
     let editForTextInProgress = false;
 
     // clientId is a random UUID that we prefix MxGraph cells with. This is part of the conflict-resolution done
