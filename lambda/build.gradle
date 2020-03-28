@@ -36,14 +36,12 @@ dependencies {
     implementation 'com.amazonaws:aws-xray-recorder-sdk-aws-sdk:2.4.0'
     implementation 'com.amazonaws:aws-xray-recorder-sdk-aws-sdk-instrumentor:2.4.0'
 
-
     implementation 'org.apache.logging.log4j:log4j-api:2.8.2'
     implementation 'com.google.code.findbugs:jsr305:3.0.2'
 
     implementation 'com.fasterxml.jackson.core:jackson-core:2.6.7'
     implementation 'com.fasterxml.jackson.core:jackson-databind:2.6.7.3'
 
-//    implementation 'org.atteo:xml-combiner:2.2'
     implementation 'io.github.java-diff-utils:java-diff-utils:4.5'
 
     runtimeOnly 'org.apache.logging.log4j:log4j-core:2.13.1'
@@ -51,8 +49,6 @@ dependencies {
     implementation 'com.google.guava:guava:28.1-jre'
     implementation 'commons-io:commons-io:2.6'
     implementation 'org.apache.commons:commons-lang3:3.9'
-
-
 
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.5.2'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.5.2'
