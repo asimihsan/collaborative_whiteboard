@@ -1,6 +1,6 @@
 (function () {
     var endpoint = '';
-    var local = (location.hostname === "localhost" || location.hostname === "127.0.0.1");
+    var local = (location.hostname === "localhost" || location.hostname === "127.0.0.1" || location.hostname.startsWith("192.168"));
     if (local) {
         endpoint = 'https://whiteboard-preprod.ihsan.io';
     }
@@ -217,6 +217,7 @@
         var chromeless = false;
         var editor = new Editor(chromeless, themes);
         editor.graph.model.prefix = clientId + "_";
+        editor.onbeforeunload = function() { };
 
         new EditorUi(editor);
 
@@ -225,7 +226,7 @@
         //	See: Graph.js line 3392
         //	See: mxGraphModel header comment
         // ------------------------------------------------------------
-        editor.graph.model.addListener(mxEvent.CHANGE, mxUtils.bind(this, function (sender, event) {
+        editor.graph.model.addListener(mxEvent.NOTIFY, mxUtils.bind(this, function (sender, event) {
             console.log(sender);
             console.log(event);
 
