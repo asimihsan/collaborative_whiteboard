@@ -41,7 +41,7 @@ public class XmlUtils {
     }
 
     @SneakyThrows({SAXException.class, IOException.class, ParserConfigurationException.class})
-    private Document loadXml(final String text) {
+    public Document loadXml(final String text) {
         final DocumentBuilder builder = documentBuilderFactory.newDocumentBuilder();
         final InputStream is = new ByteArrayInputStream(text.getBytes(StandardCharsets.UTF_8));
         final Document document = builder.parse(is);
