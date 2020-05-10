@@ -1,5 +1,9 @@
 ## Introduction
 
+`collaborative_whiteboard` is a fork of the GraphEditor example from mxGraph, which forms the core of `draw.io`. This fork alllows very basic collaboration between multiple concurrent editors.
+
+Demo server: https://whiteboard.ihsan.io
+
 ## First time CDK setup
 
 Install cdk:
